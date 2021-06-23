@@ -47,7 +47,7 @@ ensure-python-in-path:
 {% for browser in browsers %}
 install-browser-{{browser}}:
   cmd.run:
-    - name: pyhton -m webdriver --linkpath {{ web_driver_path }} {{ browser}}
+    - name: python -m webdriver --linkpath {{ web_driver_path }} {{ browser}}
 {% endfor %}
 
 {% endif %}
