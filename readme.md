@@ -12,9 +12,9 @@ Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope CurrentUser
 C:\Temp\bootstrap-salt.ps1
 ```
 
-### Bootstrap Robotframwork
+### Bootstrap Robotframework
 ```powershell
-Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap-robotframwork -OutFile C:\Temp\bootstrap-robotframwork.ps1
-C:\Temp\bootstrap-robotframwork.ps1
+Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap-robotframework -OutFile C:\Temp\bootstrap-robotframework.ps1
+C:\Temp\bootstrap-robotframework.ps1
 ```
 
