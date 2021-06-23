@@ -36,7 +36,7 @@ install_{{ package }}:
 {{ web_driver_path }}:
   file.directory
 
-{% if not {{ web_driver_path }} in salt['win_path.get_path']() %}
+{% if not web_driver_path in salt['win_path.get_path']() %}
 ensure-python-in-path:
   module.run:
     - name: win_path.add
