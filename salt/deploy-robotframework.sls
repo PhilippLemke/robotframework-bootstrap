@@ -47,7 +47,7 @@ ensure-python-in-path:
 {% for browser in browsers %}
 install-browser-{{browser}}:
   cmd.run:
-    - name: python -m webdriver --linkpath {{ web_driver_path }} {{ browser}}
+    - name: c:\salt\bin\python -m webdrivermanager --linkpath {{ web_driver_path }} {{ browser}}
 {% endfor %}
 
 {% endif %}
