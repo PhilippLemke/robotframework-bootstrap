@@ -31,7 +31,7 @@ install_{{ package }}:
 
 {% if 'robotframework-imagehorizonlibrary' in pip_packages %}
 {%  set imagehorizon_addon_packages = ['pyautogui' ]%}
-{% for package in selenium_addon_packages %}
+{% for package in imagehorizon_addon_packages %}
 install_{{ package }}:
   pip.installed:
     - name: {{ package }}
