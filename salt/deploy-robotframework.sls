@@ -8,6 +8,14 @@ ensure-python-in-path:
     - path: 'c:\salt\bin'
     - index: -1
 {% endif %}
+
+{% if not 'c:\\salt\\bin\\scripts' in salt['win_path.get_path']() %}
+ensure-python-scripts-in-path:
+  module.run:
+    - name: win_path.add
+    - path: 'c:\salt\bin\scripts'
+    - index: -1
+{% endif %}
   
 {% set pip_packages = ['dateutils', 'mergedeep' , 'robotframework', 'selenium', 'pyyaml' ] %}
   
