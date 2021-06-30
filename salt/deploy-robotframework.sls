@@ -17,7 +17,7 @@ ensure-python-scripts-in-path:
     - index: -1
 {% endif %}
   
-{% set pip_packages = ['dateutils', 'mergedeep' , 'robotframework', 'selenium', 'pyyaml' ] %}
+{% set pip_packages = ['dateutils', 'mergedeep' , 'robotframework', 'selenium', 'pyyaml', 'robotframework-imagehorizonlibrary' ] %}
   
 {% for package in pip_packages %}
 install_{{ package }}:
@@ -29,6 +29,17 @@ install_{{ package }}:
   
 {% endfor %}
 
+{% if 'robotframework-imagehorizonlibrary' in pip_packages %}
+{%  set imagehorizon_addon_packages = ['pyautogui' ]%}
+{% for package in selenium_addon_packages %}
+install_{{ package }}:
+  pip.installed:
+    - name: {{ package }}
+    - cwd: 'C:\salt\bin\scripts'
+    - bin_env: 'C:\salt\bin\scripts\pip.exe'
+    - upgrade: True  
+{% endfor %}
+{% endif %}
 
 {% if 'selenium' in pip_packages %}
 {%  set selenium_addon_packages = ['robotframework-seleniumlibrary', 'webdrivermanager' ]%}
