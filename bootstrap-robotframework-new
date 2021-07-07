@@ -8,7 +8,7 @@ New-Item -Path $salt_inst_dir -Force -Name $salt_file_root -ItemType "directory"
 Invoke-WebRequest -Uri  https://github.com/PhilippLemke/robotframework-bootstrap/archive/refs/heads/master.zip -OutFile  c:\temp\robotframework-bootstrap-master.zip
 
 Get-ChildItem 'c:\temp' -Filter robotframework-bootstrap-master.zip | Expand-Archive -DestinationPath 'c:\temp' -Force
-Copy-item -Force -Recurse -Verbose c:\temp\robotframework-bootstrap-master -Destination $salt_file_root_path
+Copy-item -Force -Recurse c:\temp\robotframework-bootstrap-master\salt -Destination $salt_file_root_path
 
 Start-Process -FilePath "C:\Windows\System32\cmd.exe" -verb runas -ArgumentList {/k c:\salt\bin\python.exe -E -s c:\salt\bin\Scripts\salt-call --local state.apply deploy-robotframework}
 
