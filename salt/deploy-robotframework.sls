@@ -1,3 +1,14 @@
+# Install an additional current version of python to be independent
+
+refresh-pkg-db:
+  cmd.run:
+    - name: salt-call --local pkg.refresh_db
+
+python3_x64:
+  pkg.installed
+
+
+
 {% set web_driver_path = 'c:\\webdriver' %}
 {% set browsers = ['chrome', 'firefox' ]%}
 
@@ -30,7 +41,7 @@ install_{{ package }}:
 {% endfor %}
 
 {% if 'robotframework-imagehorizonlibrary' in pip_packages %}
-{%  set imagehorizon_addon_packages = ['pyautogui' ]%}
+{% set imagehorizon_addon_packages = ['pyautogui' ]%}
 {% for package in imagehorizon_addon_packages %}
 install_{{ package }}:
   pip.installed:
@@ -42,7 +53,7 @@ install_{{ package }}:
 {% endif %}
 
 {% if 'selenium' in pip_packages %}
-{%  set selenium_addon_packages = ['robotframework-seleniumlibrary', 'webdrivermanager' ]%}
+{% set selenium_addon_packages = ['robotframework-seleniumlibrary', 'webdrivermanager' ]%}
 {% for package in selenium_addon_packages %}
 install_{{ package }}:
   pip.installed:
