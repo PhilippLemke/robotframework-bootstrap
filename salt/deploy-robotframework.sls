@@ -38,9 +38,7 @@ ensure-python-scripts-in-path:
 {% endif %}
 
 
-{% set pip_packages = ['dateutils', 'mergedeep' , 'robotframework', 'selenium', 'pyyaml', 'robotframework-imagehorizonlibrary' ] %}
-
-{% if pip_packages %}
+{% if pip_packages|length > 0 %}
 {% for section in pip_packages %}
 {% for package in section %}
 
