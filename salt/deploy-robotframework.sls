@@ -12,24 +12,22 @@ python3_x64:
 {% set web_driver_path = 'c:\\webdriver' %}
 {% set browsers = ['chrome', 'firefox' ]%}
 
-{#
-{% if not 'c:\\salt\\bin' in salt['win_path.get_path']() %}
+{% if not python_home in salt['win_path.get_path']() %}
 ensure-python-in-path:
   module.run:
     - name: win_path.add
-    - path: 'c:\salt\bin'
+    - path: {{ python_home }}
     - index: -1
 {% endif %}
 
-{% if not 'c:\\salt\\bin\\scripts' in salt['win_path.get_path']() %}
+{% if not python_home + '\scripts' in salt['win_path.get_path']() %}
 ensure-python-scripts-in-path:
   module.run:
     - name: win_path.add
-    - path: 'c:\salt\bin\scripts'
+    - path: {{ python_home }}\scripts
     - index: -1
 {% endif %}
 
-#}
 
 {% set pip_packages = ['dateutils', 'mergedeep' , 'robotframework', 'selenium', 'pyyaml', 'robotframework-imagehorizonlibrary' ] %}
   
