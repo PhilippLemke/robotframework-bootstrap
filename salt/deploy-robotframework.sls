@@ -2,6 +2,7 @@
 {% set python_home = 'C:\Program Files\Python39' %}
 {% set web_driver_path = 'c:\\webdriver' %}
 {% set browsers = ['chrome', 'firefox' ]%}
+{% set pip_packages = salt['pillar.get']('pip-package', False) %}
 
 {% macro install_pip_package(package) -%}
 install_{{ package }}:
@@ -19,7 +20,6 @@ refresh-pkg-db:
 python3_x64:
   pkg.installed:
     - version: 3.9.4150.0
-
 
 {% if not python_home in salt['win_path.get_path']() %}
 ensure-python-in-path:
@@ -39,10 +39,17 @@ ensure-python-scripts-in-path:
 
 
 {% set pip_packages = ['dateutils', 'mergedeep' , 'robotframework', 'selenium', 'pyyaml', 'robotframework-imagehorizonlibrary' ] %}
-  
-{% for package in pip_packages %}
+
+{% if pip_packages %}
+{% for section in pip_packages %}
+{% for package in section %}
+
 {{ install_pip_package(package) }}
+
 {% endfor %}
+{% endfor %}
+{% endif %}
+
 
 {#
 {% if 'robotframework-imagehorizonlibrary' in pip_packages %}

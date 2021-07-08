@@ -1,4 +1,5 @@
 # Dummy top sls file
 
-"*":
-  - robotframework
+base:
+  "*":
+    - robotframework
