@@ -15,6 +15,6 @@ pip-packages:
 # only honored if robotframework-seleniumlibrary is in pip-packages 
 selenium:
   web_driver_path: C:\webdriver
-  browser:
+  browsers:
     - firefox
     - chrome
