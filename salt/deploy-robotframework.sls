@@ -5,13 +5,14 @@ refresh-pkg-db:
     - name: salt-call --local pkg.refresh_db
 
 python3_x64:
-  pkg.installed
+  pkg.installed:
+    - version: 3.9.4150.0
 
-
-
+{% set python_home = 'C:\Program Files\Python39' %}
 {% set web_driver_path = 'c:\\webdriver' %}
 {% set browsers = ['chrome', 'firefox' ]%}
 
+{#
 {% if not 'c:\\salt\\bin' in salt['win_path.get_path']() %}
 ensure-python-in-path:
   module.run:
@@ -27,19 +28,22 @@ ensure-python-scripts-in-path:
     - path: 'c:\salt\bin\scripts'
     - index: -1
 {% endif %}
-  
+
+#}
+
 {% set pip_packages = ['dateutils', 'mergedeep' , 'robotframework', 'selenium', 'pyyaml', 'robotframework-imagehorizonlibrary' ] %}
   
 {% for package in pip_packages %}
 install_{{ package }}:
   pip.installed:
     - name: {{ package }}
-    - cwd: 'C:\salt\bin\scripts'
-    - bin_env: 'C:\salt\bin\scripts\pip.exe'
+    - cwd: '{{ python_home }}\scripts'
+    - bin_env: '{{ python_home }}\scripts\pip.exe'
     - upgrade: True
   
 {% endfor %}
 
+{#
 {% if 'robotframework-imagehorizonlibrary' in pip_packages %}
 {% set imagehorizon_addon_packages = ['pyautogui' ]%}
 {% for package in imagehorizon_addon_packages %}
@@ -82,4 +86,4 @@ install-browser-{{browser}}:
 
 {% endif %}
 
-
+#}
