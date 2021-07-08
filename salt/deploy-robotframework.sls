@@ -41,37 +41,24 @@ ensure-python-scripts-in-path:
 {% if pip_packages|length > 0 %}
 {% for section, packages in pip_packages.items() %}
 {% for package in packages %}
+
 {{ install_pip_package(package) }}
+
+{% if package == "robotframework-imagehorizonlibrary" %}
+{{ install_pip_package('Pillow') }}
+
+{% elif package == "robotframework-seleniumlibrary" %}
+{{ install_pip_package('selenium') }}
+{{ install_pip_package('webdrivermanager') }}
+
+{% endif %}
+
 {% endfor %}
 {% endfor %}
 {% endif %}
-
 
 
 {#
-{% if 'robotframework-imagehorizonlibrary' in pip_packages %}
-{% set imagehorizon_addon_packages = ['pyautogui' ]%}
-{% for package in imagehorizon_addon_packages %}
-install_{{ package }}:
-  pip.installed:
-    - name: {{ package }}
-    - cwd: 'C:\salt\bin\scripts'
-    - bin_env: 'C:\salt\bin\scripts\pip.exe'
-    - upgrade: True  
-{% endfor %}
-{% endif %}
-
-{% if 'selenium' in pip_packages %}
-{% set selenium_addon_packages = ['robotframework-seleniumlibrary', 'webdrivermanager' ]%}
-{% for package in selenium_addon_packages %}
-install_{{ package }}:
-  pip.installed:
-    - name: {{ package }}
-    - cwd: 'C:\salt\bin\scripts'
-    - bin_env: 'C:\salt\bin\scripts\pip.exe'
-    - upgrade: True  
-{% endfor %}
-
 {{ web_driver_path }}:
   file.directory
 
