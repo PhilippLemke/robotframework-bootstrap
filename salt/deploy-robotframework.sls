@@ -1,4 +1,16 @@
 # Install an additional current version of python to be independent
+{% set python_home = 'C:\Program Files\Python39' %}
+{% set web_driver_path = 'c:\\webdriver' %}
+{% set browsers = ['chrome', 'firefox' ]%}
+
+{% macro install_pip_package(package) -%}
+install_{{ package }}:
+  pip.installed:
+    - name: {{ package }}
+    - cwd: '{{ python_home }}\scripts'
+    - bin_env: '{{ python_home }}\scripts\pip.exe'
+    - upgrade: True
+{% endmacro %}
 
 refresh-pkg-db:
   cmd.run:
@@ -8,9 +20,6 @@ python3_x64:
   pkg.installed:
     - version: 3.9.4150.0
 
-{% set python_home = 'C:\Program Files\Python39' %}
-{% set web_driver_path = 'c:\\webdriver' %}
-{% set browsers = ['chrome', 'firefox' ]%}
 
 {% if not python_home in salt['win_path.get_path']() %}
 ensure-python-in-path:
@@ -32,13 +41,7 @@ ensure-python-scripts-in-path:
 {% set pip_packages = ['dateutils', 'mergedeep' , 'robotframework', 'selenium', 'pyyaml', 'robotframework-imagehorizonlibrary' ] %}
   
 {% for package in pip_packages %}
-install_{{ package }}:
-  pip.installed:
-    - name: {{ package }}
-    - cwd: '{{ python_home }}\scripts'
-    - bin_env: '{{ python_home }}\scripts\pip.exe'
-    - upgrade: True
-  
+{{ install_pip_package(package) }}
 {% endfor %}
 
 {#
