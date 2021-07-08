@@ -2,7 +2,7 @@
 {% set python_home = 'C:\Program Files\Python39' %}
 {% set web_driver_path = 'c:\\webdriver' %}
 {% set browsers = ['chrome', 'firefox' ]%}
-{% set pip_packages = salt['pillar.get']('pip-package', {}) %}
+{% set pip_packages = salt['pillar.get']('pip-packages', {}) %}
 
 {% macro install_pip_package(package) -%}
 install_{{ package }}:
