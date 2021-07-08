@@ -12,6 +12,9 @@ pip-packages:
     - dateutils
     - pyyaml
 
-browser:
-  - firefox
-  - chrome
+# only honored if robotframework-seleniumlibrary is in pip-packages 
+selenium:
+  web_driver_path: C:\webdriver
+  browser:
+    - firefox
+    - chrome
