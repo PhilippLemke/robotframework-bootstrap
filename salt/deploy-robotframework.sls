@@ -39,14 +39,13 @@ ensure-python-scripts-in-path:
 
 
 {% if pip_packages|length > 0 %}
-{% for section in pip_packages %}
-{% for package in section %}
-
+{% for section, packages in pip_packages.items() %}
+{% for package in packages %}
 {{ install_pip_package(package) }}
-
 {% endfor %}
 {% endfor %}
 {% endif %}
+
 
 
 {#
