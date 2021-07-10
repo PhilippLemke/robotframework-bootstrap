@@ -32,7 +32,6 @@ install-browser-{{browser}}:
     - name: {{ python_home }}\python -m webdrivermanager --linkpath {{ web_driver_path }} {{ browser }}
 {% endfor %}
 
-{% endif %}
 {% endmacro %}
 
 refresh-pkg-db:
