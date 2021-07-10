@@ -18,3 +18,10 @@ selenium:
   browsers:
     - firefox
     - chrome
+  install_browsers: False
+
+vscode:
+  install_vscode: True
+  extensions:
+    - robocorp.robotframework-lsp
+    - ms-python.python
