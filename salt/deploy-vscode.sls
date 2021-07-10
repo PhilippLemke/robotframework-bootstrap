@@ -1,7 +1,7 @@
 vscode:
   pkg.installed
 
-{% vscode_extensions = salt['pillar.get']('vscode:extensions', []) %}
+{% set vscode_extensions = salt['pillar.get']('vscode:extensions', []) %}
 
 {% for ext in vscode_extensions -%}
 install-vscode-ext-{{ ext }}:
