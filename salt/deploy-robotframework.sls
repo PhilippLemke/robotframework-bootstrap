@@ -4,6 +4,8 @@
 {% set browsers = salt['pillar.get']('selenium:browsers', []) %}
 {% set pip_packages = salt['pillar.get']('pip-packages', {}) %}
 
+# Todo: Upgrade pip first"c:\program files\python39\python.exe" -m pip install --upgrade pip
+
 {% macro install_pip_package(package) -%}
 install_{{ package }}:
   pip.installed:
@@ -70,6 +72,7 @@ ensure-python-scripts-in-path:
 
 {% if package == "robotframework-imagehorizonlibrary" %}
 {{ install_pip_package('Pillow') }}
+{{ install_pip_package('opencv-python') }}
 
 {% elif package == "robotframework-seleniumlibrary" %}
 {{ install_pip_package('selenium') }}
