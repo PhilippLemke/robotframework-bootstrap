@@ -1,6 +1,9 @@
 # Robot Framework Bootstrap-Config
 
 pip-packages:
+  base:
+    - wheel
+
   robotframework:
     - robotframework
     - robotframework-seleniumlibrary
