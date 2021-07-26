@@ -6,5 +6,6 @@ vscode:
 {% for ext in vscode_extensions -%}
 install-vscode-ext-{{ ext }}:
   cmd.run:
-    - name: code --install-extension {{ ext }}
+    - name: >
+        "C:\Program Files\Microsoft VS Code\bin\code.cmd" --install-extension {{ ext }}
 {% endfor %}

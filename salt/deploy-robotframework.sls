@@ -31,7 +31,8 @@ ensure-web-drivers-in-path:
 {% for browser in browsers %}
 install-browser-{{browser}}:
   cmd.run:
-    - name: "{{ python_home }}\python" -m webdrivermanager --linkpath {{ web_driver_path }} {{ browser }}
+    - name: >
+        "{{ python_home }}\\python" -m webdrivermanager --linkpath {{ web_driver_path }} {{ browser }}
 {% endfor %}
 
 {% endmacro %}
