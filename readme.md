@@ -7,6 +7,7 @@
 
 ### Boostrap Salt
 ```powershell
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 Invoke-WebRequest -Uri https://winbootstrap.saltproject.io -OutFile C:\Temp\bootstrap-salt.ps1
 Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope CurrentUser
 C:\Temp\bootstrap-salt.ps1
