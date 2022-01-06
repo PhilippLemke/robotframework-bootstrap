@@ -21,7 +21,7 @@ Copy-item -Force -Recurse "$tmp_folder\$repo\salt" -Destination "$salt_file_root
 Copy-item -Force -Recurse "$tmp_folder\$repo\pillar" -Destination "$salt_file_root_path"
 
 write "Cleanup $tmp_folder"
-#Remove-Item "$tmp_folder\$repo*" -Recurse
+Remove-Item "$tmp_folder\$repo*" -Recurse
 
 
 Start-Process -FilePath C:\Windows\System32\cmd.exe -verb runas -ArgumentList {/k C:\PROGRA~1\SALTPR~1\Salt\bin\python.exe -E -s C:\PROGRA~1\SALTPR~1\Salt\bin\Scripts\salt-call --local state.apply deploy-robotframework}
