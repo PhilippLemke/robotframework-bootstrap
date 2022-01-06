@@ -37,13 +37,16 @@ install-browser-{{browser}}:
 
 {% endmacro %}
 
+{#
 refresh-pkg-db:
   cmd.run:
     - name: salt-call --local pkg.refresh_db
+#}
 
 python3_x64:
   pkg.installed:
     - version: 3.9.4150.0
+    - refresh: True
 
 {% if not python_home in salt['win_path.get_path']() %}
 ensure-python-in-path:
