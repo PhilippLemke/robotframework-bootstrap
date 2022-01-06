@@ -4,9 +4,9 @@ $repo="robotframework-bootstrap-master"
 $tmp_folder="C:\temp"
 
 #$salt_inst_dir = "C:\salt"
-$salt_inst_dir = "C:\Program Files\Salt Project\Salt"
-$salt_file_root = "srv"
-$salt_file_root_path = $salt_inst_dir + "\" + $salt_file_root
+$salt_inst_dir = "%ProgramFiles%\SALT Project\Salt"
+$salt_file_root_path = "C:\ProgramData\Salt Project\Salt\srv"
+
 
 # Download bootstrap git content as zip-file and extract it to tmp
 Invoke-WebRequest -Uri  https://github.com/PhilippLemke/robotframework-bootstrap/archive/refs/heads/master.zip -OutFile  "$tmp_folder/$repo.zip"
@@ -16,11 +16,12 @@ Get-ChildItem $tmp_folder -Filter "$repo.zip" | Expand-Archive -DestinationPath 
 New-Item -Path $salt_inst_dir -Force -Name $salt_file_root -ItemType "directory"
 
 # Copy salt and pillar content from tmp to local minion
-Copy-item -Force -Recurse $tmp_folder\$repo\salt -Destination $salt_file_root_path
-Copy-item -Force -Recurse $tmp_folder\$repo\pillar -Destination $salt_file_root_path
+write "Copy-item -Force -Recurse $tmp_folder\$repo\salt -Destination $salt_file_root_path"
+Copy-item -Force -Recurse "$tmp_folder\$repo\salt" -Destination "$salt_file_root_path"
+Copy-item -Force -Recurse "$tmp_folder\$repo\pillar" -Destination "$salt_file_root_path"
 
 write "Cleanup $tmp_folder"
-Remove-Item "$tmp_folder\$repo*" -Recurse
+#Remove-Item "$tmp_folder\$repo*" -Recurse
 
-Start-Process -FilePath "C:\Windows\System32\cmd.exe" -verb runas -ArgumentList {/k $salt_inst_dir\bin\python.exe -E -s $salt_inst_dir\bin\Scripts\salt-call --local state.apply deploy-robotframework}
 
+Start-Process -FilePath C:\Windows\System32\cmd.exe -verb runas -ArgumentList {/k C:\PROGRA~1\SALTPR~1\Salt\bin\python.exe -E -s C:\PROGRA~1\SALTPR~1\Salt\bin\Scripts\salt-call --local state.apply deploy-robotframework}
