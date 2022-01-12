@@ -10,6 +10,7 @@ pip-packages:
     - robotframework-browser
     - robotframework-imagehorizonlibrary
     - robotframework-autoitlibrary
+    - robotframework-crypto
 
   robotmk:
     - mergedeep
