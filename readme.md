@@ -21,6 +21,10 @@ Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/
 C:\Temp\bootstrap-robotframework.ps1
 ```
 
-###  Prepare offline installer for clients without internet access
+###  Build offline installer for clients without internet access
+This will use the current version of salt to build an offline installer
 
+Requirements: 
+- Client with internet access
 
+https://github.com/PhilippLemke/robotframework-bootstrap
