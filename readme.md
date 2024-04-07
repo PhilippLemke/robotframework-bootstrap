@@ -8,14 +8,22 @@
 
 #### Boostrap Salt
 ```powershell
+$saltversion=3006.7
 New-Item -ItemType Directory -Force -Path C:\temp
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 Invoke-WebRequest -Uri https://winbootstrap.saltproject.io -OutFile C:\Temp\bootstrap-salt.ps1
 Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope CurrentUser
-C:\Temp\bootstrap-salt.ps1 -RunService false
+C:\Temp\bootstrap-salt.ps1 -RunService false -Version $saltversion
 ```
 
 #### Bootstrap Robotframework
+```powershell
+Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap-robotframework.ps1 -OutFile C:\Temp\bootstrap-robotframework.ps1
+C:\Temp\bootstrap-robotframework.ps1
+```
+
+
+#### Bootstrap Robotframework old fashion way
 ```powershell
 Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap-robotframework -OutFile C:\Temp\bootstrap-robotframework.ps1
 C:\Temp\bootstrap-robotframework.ps1
