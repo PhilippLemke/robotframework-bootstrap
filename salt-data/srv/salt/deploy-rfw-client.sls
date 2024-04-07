@@ -1,7 +1,5 @@
 # Install an additional current version of python to be independent from salt runtime env
 {% set python_home = 'C:\Program Files\Python39' %}
-{% set web_driver_path = salt['pillar.get']('web_driver_path', 'C:\webdriver') %}
-{% set browsers = salt['pillar.get']('selenium:browsers', []) %}
 {% set pip_packages = salt['pillar.get']('pip-packages', {}) %}
 {% set local_webdriver = salt.cp.list_master_dirs(prefix='blobs/webdriver') | count %}
 
@@ -14,46 +12,10 @@ install_{{ package }}:
     - cwd: '{{ python_home }}\scripts'
     - bin_env: '{{ python_home }}\scripts\pip.exe'
     - no_index: True
-    - find_links: C:\RFW_Bootstrap\pip
+    # use variable instead of hardcoded path to avoid issues with salt runtime env
+    - find_links: C:\RF-Bootstrap\pkgs\pip
 {% endmacro %}
 
-{% macro provide_selenium_addons() %}
-{{ web_driver_path }}:
-  file.directory
-
-{% if not web_driver_path in salt['win_path.get_path']() %}
-ensure-web-drivers-in-path:
-  module.run:
-    - name: win_path.add
-    - path: {{ web_driver_path}}
-    - index: -1
-{% endif %}
-
-{% if local_webdriver %}
-ensure-webdriver-present:
-  file.recurse:
-    - name: {{ web_driver_path }}
-    - source: salt://blobs/webdriver
-{% endif %}
-
-{% for browser, data in browsers.items() %}
-{% if data["install"] %}
-install-browser-{{browser}}:
-  pkg.installed:
-    - name: {{ browser }}
-    - version: {{ data["version"] }}
-{% endif %}
-
-# if no local drivers found in salt file root, try to install current via webdriver manager
-{% if not local_webdriver %}
-install-webdriver-for-{{browser}}:
-  cmd.run:
-    - name: >
-        "{{ python_home }}\\python" -m webdrivermanager --linkpath {{ web_driver_path }} {{ browser }}
-{% endif %}
-{% endfor %}
-
-{% endmacro %}
 
 {#
 refresh-pkg-db:
@@ -68,11 +30,6 @@ set_visual_effects_for_best_performance:
     - vdata: 2
     - vtype: REG_DWORD
 
-#
-#powertoys:
-#  pkg.installed:
-#    - version: 0.76.2
-#    - refresh: True
 
 python3_x64:
   pkg.installed:
@@ -102,19 +59,7 @@ ensure-python-scripts-in-path:
 
 # start for loop package in packages:
 {% for package in packages %}
-
 {{ install_pip_package(package) }}
-
-{% if package == "robotframework-imagehorizonlibrary" %}
-{{ install_pip_package('Pillow') }}
-{{ install_pip_package('opencv-python') }}
-
-{% elif package == "robotframework-seleniumlibrary" %}
-{{ install_pip_package('selenium') }}
-{{ install_pip_package('webdrivermanager') }}
-{{ provide_selenium_addons() }}
-{% endif %}
-
 # end for loop package in packages:
 {% endfor %}
 
@@ -141,7 +86,7 @@ app-inst-{{app}}:
 
 # First try to install locally provided extensions. The state iterates over extension-source-dir and installs all files with the suffix vsix
 {% if vscode_extensions_dir %}
-{% set vscode_extensions_dir = salt_base["base"][0] + '\\' + vscode_extensions_dir  %}
+{% set vscode_extensions_dir = salt_base["base"][1] + '\\' + vscode_extensions_dir  %}
 {% set vscode_local_extensions = salt['file.readdir'](vscode_extensions_dir)  %}
 {% for ext in vscode_local_extensions -%}
 {% if ext.endswith('vsix')%}
