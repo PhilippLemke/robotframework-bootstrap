@@ -1,11 +1,20 @@
 # Install an additional current version of python to be independent from salt runtime env
 {% set python_home = 'C:\Program Files\Python39' %}
 {% set pip_packages = salt['pillar.get']('pip-packages', {}) %}
-{% set local_webdriver = salt.cp.list_master_dirs(prefix='blobs/webdriver') | count %}
 
 # Todo: Upgrade pip first"c:\program files\python39\python.exe" -m pip install --upgrade pip
 
 {% macro install_pip_package(package) -%}
+install_{{ package }}:
+  pip.installed:
+    - name: {{ package }}
+    - cwd: '{{ python_home }}\scripts'
+    - bin_env: '{{ python_home }}\scripts\pip.exe'
+    - upgrade: True
+{% endmacro %}
+
+
+{% macro install_pip_package_offline(package) -%}
 install_{{ package }}:
   pip.installed:
     - name: {{ package }}
