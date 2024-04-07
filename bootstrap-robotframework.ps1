@@ -1,9 +1,8 @@
  # Define the URL for the Git for Windows installer
  $gitInstallerUrl = "https://github.com/git-for-windows/git/releases/download/v2.44.0.windows.1/Git-2.44.0-64-bit.exe"
  # Define the local path to save the installer
- $installerPath = "$env:TEMP\git-installer.exe"
- 
- # Define the desired version string
+ $gitInstallerPath = "$env:TEMP\git-installer.exe"
+ $defRFInstallerPath= "C:\RF-Bootsrap"
  $desiredVersion = "git version 2.44.0"
  
  # Function to check if Git command is available in the PATH
@@ -39,15 +38,15 @@
  # Download and Install Git if the desired version is not already installed
  if (-not (Is-GitVersionInstalled -desiredVersion $desiredVersion)) {
      # Check if the installer is already present in the temp directory
-     if (-not (Test-Path -Path $installerPath)) {
+     if (-not (Test-Path -Path $gitInstallerPath)) {
          # Download Git Installer
-         Invoke-WebRequest -Uri $gitInstallerUrl -OutFile $installerPath
+         Invoke-WebRequest -Uri $gitInstallerUrl -OutFile $gitInstallerPath
          Write-Output "Git installer downloaded."
      } else {
          Write-Output "Git installer already exists in the temp directory."
      }
      
-     Start-Process -FilePath $installerPath -Args "/VERYSILENT" -Wait -NoNewWindow
+     Start-Process -FilePath $gitInstallerPath -Args "/VERYSILENT" -Wait -NoNewWindow
      Write-Output "Git $desiredVersion has been installed."
  } else {
      Write-Output "The desired version of Git ($desiredVersion) is already installed."
@@ -55,7 +54,7 @@
  
  # Define your bootstrap directory structure here
  $directoryStructure = @{
-     "C:\RFW_Bootsrap" = @(
+     $defRFInstallerPath = @(
          "salt-app",
          "salt-data\srv\pillar",
          "salt-data\srv\salt",
@@ -95,7 +94,8 @@
  
  # Define source and destination paths
  $sourcePath = "C:\Program Files\Salt Project\Salt"
- $destinationPath = "C:\RFW_Bootsrap\salt-app"
+ $destinationPath = $defRFInstallerPath + "\salt-app"
+
  
  # Check if the source directory exists
  if (Test-Path -Path $sourcePath) {
