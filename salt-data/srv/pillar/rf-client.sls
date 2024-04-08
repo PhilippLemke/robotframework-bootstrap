@@ -3,6 +3,9 @@
 client-role: coding
 #role: execution-client
 
+install-mode: online
+#install-mode: [online|cloud|offline]
+
 
 # Robot Framework Bootstrap-Config
 pip-packages:
@@ -17,7 +20,7 @@ pip-packages:
     - robotframework-browser
     - robotframework-imagehorizonlibrary
     - robotframework-autoitlibrary
-    - robotframework-crypto:3123
+    - robotframework-crypto
 
   robotmk:
     - mergedeep
