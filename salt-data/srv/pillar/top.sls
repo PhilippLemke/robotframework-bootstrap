@@ -1,3 +1,3 @@
 base:
   "*":
-    - rfw-client
+    - rf-client
