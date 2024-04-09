@@ -40,3 +40,8 @@ additional-apps:
   greenshot:
     install: True
     version: 1.2.10.6
+
+# Some static settings
+python_home: "C:\Program Files\Python39"
+pip_offline_pkg_path: C:\RF-Bootstrap\pkgs\pip
+vscode_bin: 'C:\Program Files\Microsoft VS Code\bin\code.cmd'
