@@ -20,6 +20,10 @@ C:\Temp\bootstrap-salt.ps1 -RunService false -Version $saltversion
 ```powershell
 Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap-robotframework.ps1 -OutFile C:\Temp\bootstrap-robotframework.ps1
 C:\Temp\bootstrap-robotframework.ps1
+
+cd /d C:\RF-Bootstrap\salt-app\
+salt-call --local --config-dir=C:\RF-Bootstrap\salt-data\conf state.apply deploy-rfw-client pillar="{\"client-role\": \"coding\"}"
+
 ```
 
 
