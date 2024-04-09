@@ -3,7 +3,7 @@
 {% set install_mode = salt['pillar.get']('install-mode', 'online') %}
 {% set client_role = salt['pillar.get']('client-role', 'coding') %}
 
-{% set python_home = salt['pillar.get']('python-home', 'set python-home in pillar') %}
+{% set python_home = salt['pillar.get']('python_home', 'set python_home in pillar') %}
 {% set additional_apps = salt['pillar.get']('additional-apps', {}) %}
 {% set vscode_bin = salt['pillar.get']('vscode_bin', 'set vscode_bin in pillar') %}
 {% set vscode_extensions = salt['pillar.get']('additional-apps:vscode:extensions', []) %}
