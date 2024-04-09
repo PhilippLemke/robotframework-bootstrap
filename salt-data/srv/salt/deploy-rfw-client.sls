@@ -83,13 +83,9 @@ ensure-python-scripts-in-path:
 # end if install-mode == 'offline'
 {% endif %}
 {% endfor %}
-{% endif %}
-
 # end for loop package in packages:
 {% endfor %}
-
 # end for loop sections in -> pip-packages:
-{% endfor %}
 {% endif %}
 
 # start if client-role
@@ -129,7 +125,7 @@ local-install-vscode-ext-{{ ext }}:
 # end if install_mode == 'offline'
 {% endif %}
 
-# Try to install in pillar defined  extension via internet
+# Try to install in pillar defined extension via internet
 {% if install_mode == 'online' %}
 {% for ext in vscode_extensions -%}
 install-vscode-ext-{{ ext }}:
