@@ -9,7 +9,7 @@ greenshot:
   {% for VER in EXE_VERSIONS %}
  
     {% if install_mode == 'online' %}
-    {% set install_source = 'https://github.com/greenshot/greenshot/releases/download/Greenshot-RELEASE-{{ VER }}' %}
+    {% set install_source = 'https://github.com/greenshot/greenshot/releases/download/Greenshot-RELEASE-'+ VER  %}
     
     {% elif install_mode == 'cloud' %}
     {% set install_source = 's3://' + s3_bucket + '/' + subfolder %}
