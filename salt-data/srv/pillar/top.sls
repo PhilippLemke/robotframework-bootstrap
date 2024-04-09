@@ -1,3 +1,5 @@
 base:
   "*":
     - rf-client
+    - cloud
+
