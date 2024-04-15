@@ -22,7 +22,7 @@ Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/
 C:\Temp\bootstrap-robotframework.ps1
 
 cd /d C:\RF-Bootstrap\salt-app\
-salt-call --local --config-dir=C:\RF-Bootstrap\salt-data\conf state.apply deploy-rfw-client pillar="{\"client-role\": \"coding\"}"
+salt-call --local --config-dir=C:\RF-Bootstrap\salt-data\conf state.apply deploy-rf-client pillar="{\"client-role\": \"coding\"}"
 
 ```
 
@@ -33,8 +33,8 @@ Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/
 C:\Temp\bootstrap-robotframework.ps1
 ```
 
-###  Build offline installer for clients without internet access
-This will use the current version of salt to build an offline installer
+###  Build local installer for clients without internet access
+This will use the current version of salt to build an local installer
 
 Requirements: 
 - Client with internet access

@@ -3,8 +3,8 @@
 client-role: coding
 #role: execution-client
 
-install-mode: online
-#install-mode: [online|cloud|offline]
+install-mode: public
+#install-mode: [public|cloud|local]
 
 
 # Robot Framework Bootstrap-Config
@@ -27,21 +27,25 @@ pip-packages:
     - dateutils
     - pyyaml
 
+#installed on coding and execution client
+apps-common:
+  python3_x64:
+    # 150.0 is added to all python versions by default on win64 systems (outside salt context) so has to be also respected here
+      version: 3.10.9150.0
 
-additional-apps:
+#installed only on coding client
+apps-coding:
   vscode:
-    install: True
-    version: 1.85.1
+    version: 1.87.2
     extension-source-dir: blobs\vscode\extensions
     #extensions:
     #  - d-biehl.robotcode
     #  - ms-python.python
 
   greenshot:
-    install: True
     version: 1.2.10.6
 
 # Some static settings
-python_home: C:\Program Files\Python39
-pip_offline_pkg_path: C:\RF-Bootstrap\pkgs\pip
+python_home: C:\Program Files\Python310
+pip_local_pkg_path: C:\RF-Bootstrap\pkgs\pip
 vscode_bin: 'C:\Program Files\Microsoft VS Code\bin\code.cmd'
