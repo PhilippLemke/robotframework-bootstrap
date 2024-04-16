@@ -2,7 +2,7 @@
 
 python3_x64:
   {% for VER in EXE_VERSIONS %}
-      {% set install_source = 'https://www.python.org/ftp/python/' + {{ VER }} + '/python'  %}
+      {% set install_source = 'https://www.python.org/ftp/python/' + VER  %}
   '{{ VER }}150.0':
     full_name: 'Python {{ VER }} Core Interpreter (64-bit)'
     installer: '{{ install_source }}/python-{{ VER }}-amd64.exe'
