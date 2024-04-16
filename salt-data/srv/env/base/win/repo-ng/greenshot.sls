@@ -1,4 +1,4 @@
-{% from "macros/custom_macros.sls" import install_greenshot with context %}
+{% from "macros/install_packages.sls" import install_greenshot with context %}
 
 {% set EXE_VERSIONS = [ '1.2.10.6' ] %}
 
