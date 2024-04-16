@@ -41,6 +41,8 @@ apps-coding:
     #extensions:
     #  - d-biehl.robotcode
     #  - ms-python.python
+  firefox:
+    version: 
 
   greenshot:
     version: 1.2.10.6

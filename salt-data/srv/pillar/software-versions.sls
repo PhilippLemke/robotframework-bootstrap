@@ -4,3 +4,7 @@ repo-ng-versions:
   greenshot:
     - 1.2.10.6
 
+  firefox:
+    - 124.0.2
+    - 107.0
+    - 98.0
