@@ -12,9 +12,9 @@
 
 {% macro install_firefox(ver, install_source) %}
 {% set lang = 'en-US' %}
-  '{{ version }}':
+  '{{ ver }}':
     full_name: 'Mozilla Firefox (x64 {{ lang }})'
-    installer: {{ install_source }}/{{ lang }}/Firefox%20Setup%20{{ version }}.exe
+    installer: {{ install_source }}/{{ lang }}/Firefox%20Setup%20{{ ver }}.exe
     # https://download-installer.cdn.mozilla.net/pub/firefox/releases/124.0.2/win64/en-US/
     # installer: 'salt://blobs/firefox/{{ lang }}/Firefox Setup {{ version }}.exe'
     install_flags: '/S'
