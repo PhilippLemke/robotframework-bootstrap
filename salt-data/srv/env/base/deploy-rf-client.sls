@@ -44,6 +44,25 @@ set_visual_effects_for_best_performance:
     - vdata: 2
     - vtype: REG_DWORD
 
+{% for app, specs in apps_common.items() %}
+app-inst-{{app}}:
+  pkg.installed:
+    - name: {{ app }}
+    - version: {{ specs["version"] }}
+    - refresh: True
+{% endfor %}
+
+# start if client-role
+{% if client_role == "coding" %}
+# install additional apps if coding client 
+{% for app, specs in apps_coding.items() %}
+app-inst-{{app}}:
+  pkg.installed:
+    - name: {{ app }}
+    - version: {{ specs["version"] }}
+    - refresh: True
+{% endfor %}
+
 
 
 {% if not python_home in salt['win_path.get_path']() %}
@@ -81,25 +100,6 @@ ensure-python-scripts-in-path:
 # end for loop sections in -> pip-packages:
 {% endif %}
 
-
-{% for app, specs in apps_common.items() %}
-app-inst-{{app}}:
-  pkg.installed:
-    - name: {{ app }}
-    - version: {{ specs["version"] }}
-    - refresh: True
-{% endfor %}
-
-# start if client-role
-{% if client_role == "coding" %}
-# install additional apps if coding client 
-{% for app, specs in apps_coding.items() %}
-app-inst-{{app}}:
-  pkg.installed:
-    - name: {{ app }}
-    - version: {{ specs["version"] }}
-    - refresh: True
-{% endfor %}
 
 #python3_x64:
 #  pkg.installed:
