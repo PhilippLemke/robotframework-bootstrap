@@ -47,6 +47,7 @@
 {% endmacro %}
 
 {% macro install_vscode(ver, install_source) %}
+  {% set PROGRAM_FILES = "%ProgramFiles%" %}
   '{{ ver }}':
     full_name: 'Microsoft Visual Studio Code'
     installer: {{ install_source|trim }}/VSCodeSetup-x64-{{ ver }}.exe
