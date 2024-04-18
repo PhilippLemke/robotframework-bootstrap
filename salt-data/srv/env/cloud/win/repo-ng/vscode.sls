@@ -1,20 +1,12 @@
-# original source: https://github.com/saltstack/salt-winrepo-ng/blob/master/vscode.sls
-# due to winrepo installer limitations you need to manually download x86 + x64 System installer from
-# https://code.visualstudio.com/Download
-# and put it on the winrepo on master to install it the 'salt://win/repo-ng/vscode/...
+{% from "macros/install_packages.sls" import install_vscode with context %}
+{% from "macros/install_base.sls" import s3_install with context %}
 
-{% set PROGRAM_FILES = "%ProgramFiles%" %}
-{% set VERSIONS = ['1.87.2', '1.85.1' ,'1.58.0'] %}
+{% set software = 'vscode' %}
+{% set sw_versions = salt['pillar.get']('repo-ng-versions:' ~ software, ["Version not defined in pillar"]) %}
+{% set install_source = s3_install(software) %}
 
-vscode:
-  {% for version in VERSIONS %}
-  '{{version}}':
-    full_name: 'Microsoft Visual Studio Code'
-    installer: 'salt://blobs/vscode/VSCodeSetup-x64-{{ version }}.exe'
-    uninstaller: '{{ PROGRAM_FILES }}\Microsoft VS Code\unins000.exe'
-    install_flags: '/SP- /VERYSILENT /NORESTART /MERGETASKS="!RUNCODE,ADDCONTEXTMENUFILES,ADDCONTEXTMENUFOLDERS,ADDTOPATH"'
-    uninstall_flags: '/VERYSILENT /NORESTART'
-    msiexec: False
-    locale: en_US
-    reboot: False
+
+{{ software }}:
+  {% for ver, guid in sw_versions %}
+  {{ install_vscode(ver, install_source) }}
   {% endfor %}

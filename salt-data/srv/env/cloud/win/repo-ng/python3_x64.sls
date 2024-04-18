@@ -1,14 +1,12 @@
-{% set EXE_VERSIONS = [ '3.9.8', '3.9.4' ] %}
+{% from "macros/install_packages.sls" import install_python3_x64 with context %}
+{% from "macros/install_base.sls" import s3_install with context %}
 
-python3_x64:
-  {% for VER in EXE_VERSIONS %}
-  '{{ VER }}150.0':
-    full_name: 'Python {{ VER }} Core Interpreter (64-bit)'
-    installer: 'salt://blobs/python/python-{{ VER }}-amd64.exe'
-    install_flags: '/quiet InstallAllUsers=1'
-    uninstaller: 'salt://blobs/python/python-{{ VER }}-amd64.exe'
-    uninstall_flags: '/quiet /uninstall'
-    msiexec: False
-    locale: en_US
-    reboot: False
+{% set software = 'python3_x64' %}
+{% set sw_versions = salt['pillar.get']('repo-ng-versions:' ~ software, ["Version not defined in pillar"]) %}
+{% set install_source = s3_install(software) %}
+
+
+{{ software }}:
+  {% for ver in sw_versions %}
+  {{ install_python3_x64(ver, install_source) }}
   {% endfor %}
