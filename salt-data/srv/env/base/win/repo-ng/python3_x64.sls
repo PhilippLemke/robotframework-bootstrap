@@ -3,7 +3,8 @@
 
 python3_x64:
   {% for ver in sw_versions %}
-    {% set install_source = 'https://www.python.org/ftp/python/' + ver  %}
+    {% set install_source = 'https://www.python.org/ftp/python/' ~ ver  %}
     {{ install_python3_x64(ver, install_source) }}
   {% endfor %}
 
+~

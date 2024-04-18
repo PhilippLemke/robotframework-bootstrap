@@ -3,7 +3,7 @@
 
 firefox:
   {% for ver in sw_versions %}
-    {% set install_source = 'https://download-installer.cdn.mozilla.net/pub/firefox/releases/' + ver +'/win64'  %}
+    {% set install_source = 'https://download-installer.cdn.mozilla.net/pub/firefox/releases/' ~ ver ~ '/win64'  %}
     {{ install_firefox(ver, install_source) }}
   {% endfor %}
 

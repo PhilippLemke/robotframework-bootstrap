@@ -12,7 +12,7 @@ repo-ng-versions:
   nodejs:
     - "20.11.1"
 
-  python:
+  python3_x64:
     - "3.10.9"
     - "3.9.8"
     - "3.9.4"

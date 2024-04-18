@@ -3,7 +3,7 @@
 
 greenshot:
   {% for ver in sw_versions %}
-    {% set install_source = 'https://github.com/greenshot/greenshot/releases/download/Greenshot-RELEASE-'+ ver  %}
+    {% set install_source = 'https://github.com/greenshot/greenshot/releases/download/Greenshot-RELEASE-' ~ ver  %}
  
   {{ install_greenshot(ver, install_source)}}
   {% endfor %}
