@@ -24,10 +24,37 @@
 {% endmacro %}
 
 {% macro install_nodejs(ver, install_source) %}
+  '{{ ver }}':
+    full_name: 'Node.js'
+    installer: {{ install_source }}/node-v{{ ver }}-x64.msi
+    install_flags: '/qn /norestart'
+    uninstall_flags: /qn /norestart
+    msiexec: True
+    locale: en_US
+    reboot: False
 {% endmacro %}
 
 {% macro install_python3_x64(ver, install_source) %}
+  '{{ ver }}150.0':
+    full_name: 'Python {{ ver }} Core Interpreter (64-bit)'
+    installer: {{ install_source }}/python-{{ ver }}-amd64.exe
+    install_flags: '/quiet InstallAllUsers=1'
+    uninstaller: {{ install_source }}/python-{{ ver }}-amd64.exe
+    uninstall_flags: '/quiet /uninstall'
+    msiexec: False
+    locale: en_US
+    reboot: False
 {% endmacro %}
 
 {% macro install_vscode(ver, install_source) %}
+  '{{ ver }}':
+    full_name: 'Microsoft Visual Studio Code'
+    installer: {{ install_source }}/VSCodeSetup-x64-{{ ver }}.exe
+    uninstaller: '{{ PROGRAM_FILES }}\Microsoft VS Code\unins000.exe'
+    install_flags: '/SP- /VERYSILENT /NORESTART /MERGETASKS="!RUNCODE,ADDCONTEXTMENUFILES,ADDCONTEXTMENUFOLDERS,ADDTOPATH"'
+    uninstall_flags: '/VERYSILENT /NORESTART'
+    msiexec: False
+    locale: en_US
+    reboot: False
+
 {% endmacro %}

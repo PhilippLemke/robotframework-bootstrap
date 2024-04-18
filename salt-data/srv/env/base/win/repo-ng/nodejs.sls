@@ -1,18 +1,12 @@
-{% set EXE_VERSIONS = [ '20.11.1' ] %}
+{% from "macros/install_packages.sls" import install_nodejs with context %}
+{% set sw_versions = salt['pillar.get']('repo-ng-versions:nodejs',["Version not defined in pillar"] ) %}
 
 nodejs:
-  {% for VER in EXE_VERSIONS %}
-  '{{ VER }}':
-    full_name: 'Node.js'
-    installer: 'https://nodejs.org/dist/v{{ VER }}/node-v{{ VER }}-x64.msi'
-    #installer: 'salt://blobs/nodejs/node-v{{ VER }}-x64.msi'
-    install_flags: '/qn /norestart'
-    #uninstaller: '%ProgramFiles%/Greenshot/unins000.exe'
-    uninstall_flags: /qn /norestart
-    msiexec: True
-    locale: en_US
-    reboot: False
+  {% for ver in sw_versions %}
+    {% set install_source = 'https://nodejs.org/dist/v{{ ver }}/node-v{{ ver }}-x64.msi'  %}
+    {{ install_nodejs(ver, install_source) }}
   {% endfor %}
 
-  #msiexec /i  node-v20.11.1-x64.msi /qn /norestart
+
+
 

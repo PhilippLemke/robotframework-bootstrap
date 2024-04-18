@@ -1,15 +1,9 @@
-{% set EXE_VERSIONS = [ '3.10.9', '3.9.8', '3.9.4' ] %}
+{% from "macros/install_packages.sls" import install_python3_x64 with context %}
+{% set sw_versions = salt['pillar.get']('repo-ng-versions:python3_x64',["Version not defined in pillar"] ) %}
 
 python3_x64:
-  {% for VER in EXE_VERSIONS %}
-      {% set install_source = 'https://www.python.org/ftp/python/' + VER  %}
-  '{{ VER }}150.0':
-    full_name: 'Python {{ VER }} Core Interpreter (64-bit)'
-    installer: '{{ install_source }}/python-{{ VER }}-amd64.exe'
-    install_flags: '/quiet InstallAllUsers=1'
-    uninstaller: '{{ install_source }}/python-{{ VER }}-amd64.exe'
-    uninstall_flags: '/quiet /uninstall'
-    msiexec: False
-    locale: en_US
-    reboot: False
+  {% for ver in sw_versions %}
+    {% set install_source = 'https://www.python.org/ftp/python/' + ver  %}
+    {{ install_python3_x64(ver, install_source) }}
   {% endfor %}
+
