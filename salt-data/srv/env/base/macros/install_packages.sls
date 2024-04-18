@@ -1,3 +1,19 @@
+{% macro s3_install_base(software) %}
+{% from "macros/install_packages.sls" import install_software with context %}
+{% set sw_versions = salt['pillar.get']('repo-ng-versions:' ~ software, ["Version not defined in pillar"]) %}
+
+{% set protocol = 's3' %}
+{% set s3_bucket = salt['pillar.get']('s3_bucket', 'specify s3_bucket in pillars') %}
+{% set subfolder = 'blobs/' ~ software %}
+{% set install_source = protocol ~ '://' ~ s3_bucket ~ '/' ~ subfolder %}
+
+{{ software }}:
+  {% for ver in sw_versions %}
+  {{ install_software(ver, install_source) }}
+  {% endfor %}
+{% endmacro %}
+
+
 {% macro install_greenshot(ver,install_source) %}
   '{{ ver }}':
     full_name: 'Greenshot {{ ver }}'
