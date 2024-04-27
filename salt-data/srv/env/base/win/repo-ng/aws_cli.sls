@@ -1,9 +1,10 @@
-{% from "macros/install_packages.sls" import install_firefox with context %}
-{% set sw_versions = salt['pillar.get']('repo-ng-versions:aws_cli',["Version not defined in pillar"] ) %}
+{% from "macros/install_packages.sls" import install_aws_cli with context %}
 
-firefox:
+{% set software = 'aws_cli' %}
+{% set install_source = 'https://awscli.amazonaws.com' %}
+{% set sw_versions = salt['pillar.get']('repo-ng-versions:' ~ software, ["Version not defined in pillar"]) %}
+
+{{ software }}:
   {% for ver in sw_versions %}
-    {% set install_source = 'https://awscli.amazonaws.com/AWSCLIV2-' ~ ver ~ '.msi'  %}
-    {{ install_firefox(ver, install_source) }}
+  {{ install_aws_cli(ver, install_source) }}
   {% endfor %}
-
