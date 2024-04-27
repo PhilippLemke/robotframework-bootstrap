@@ -42,7 +42,7 @@ apps-coding:
     #  - d-biehl.robotcode
     #  - ms-python.python
   firefox:
-    version: 
+    version: 107.0
 
   greenshot:
     version: 1.2.10.6

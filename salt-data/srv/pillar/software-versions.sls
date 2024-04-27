@@ -5,20 +5,20 @@ repo-ng-versions:
     - 2.15.42
 
   firefox:
-    - "124.0.2"
-    - "107.0"
-    - "98.0"
+    - 124.0.2
+    - 107.0
+    - 98.0
 
   greenshot:
-    - "1.2.10.6"
+    - 1.2.10.6
 
   nodejs:
-    - "20.11.1"
+    - 20.11.1
 
   python3_x64:
-    - "3.10.9"
-    - "3.9.8"
-    - "3.9.4"
+    - 3.10.9
+    - 3.9.8
+    - 3.9.4
 
 # vscode versions including the version specific guid for public download
   vscode:
