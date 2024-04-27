@@ -1,6 +1,9 @@
 # Here are the available software versions defined that salt provides via repo-ng
 
 repo-ng-versions:
+  aws-cli:
+    - 2.15.42
+
   firefox:
     - "124.0.2"
     - "107.0"

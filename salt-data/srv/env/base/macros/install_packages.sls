@@ -1,3 +1,14 @@
+{% macro install_aws-cli(ver, install_source) %}
+  '{{ ver }}.0':
+    full_name: 'AWS Command Line Interface v2'
+    installer: {{ install_source|trim }}/AWSCLIV2-{{ ver }}.msi
+    install_flags: '/qn /norestart'
+    uninstall_flags: /qn /norestart
+    msiexec: True
+    locale: en_US
+    reboot: False
+{% endmacro %}
+
 {% macro install_greenshot(ver, install_source) %}
   '{{ ver }}':
     full_name: 'Greenshot {{ ver }}'
