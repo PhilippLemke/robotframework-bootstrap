@@ -1,4 +1,5 @@
-{% macro install_aws-cli(ver, install_source) %}
+
+{% macro install_aws_cli(ver, install_source) %}
   '{{ ver }}.0':
     full_name: 'AWS Command Line Interface v2'
     installer: {{ install_source|trim }}/AWSCLIV2-{{ ver }}.msi
