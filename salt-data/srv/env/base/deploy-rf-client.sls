@@ -1,3 +1,5 @@
+{% from "macros/pip.sls" import install_pip_package, install_pip_package_local with context %}
+
 # Install an additional current version of python to be independent from salt runtime env
 #{% set python_home = 'C:\Program Files\Python39' %}
 #{% set install_mode = salt['pillar.get']('install-mode', 'public') %}
@@ -15,26 +17,7 @@
 
 # Todo: Upgrade pip first"c:\program files\python39\python.exe" -m pip install --upgrade pip
 
-{% macro install_pip_package(package) -%}
-install_{{ package }}:
-  pip.installed:
-    - name: {{ package }}
-    - cwd: '{{ python_home }}\scripts'
-    - bin_env: '{{ python_home }}\scripts\pip.exe'
-    - upgrade: True
-{% endmacro %}
 
-
-{% macro install_pip_package_local(package, pip_local_pkg_path) -%}
-install_{{ package }}:
-  pip.installed:
-    - name: {{ package }}
-    - cwd: '{{ python_home }}\scripts'
-    - bin_env: '{{ python_home }}\scripts\pip.exe'
-    - no_index: True
-    # use variable instead of hardcoded path to avoid issues with salt runtime env
-    - find_links: {{ pip_local_pkg_path }}
-{% endmacro %}
 
 # Disable visual effects for best performance to ensure smooth edges for fonts and scroll list boxes are disabled. Important for RF ImageHorizonLibrary!
 set_visual_effects_for_best_performance:
@@ -89,9 +72,9 @@ ensure-python-scripts-in-path:
 # start for loop pip package in packages:
 {% for package in packages %}
 {% if install_mode == 'local' %}
-{{ install_pip_package_local(package, pip_local_pkg_path) }}
+{{ install_pip_package_local(package, pip_local_pkg_path, python_home) }}
 {% else %}
-{{ install_pip_package(package) }}
+{{ install_pip_package(package, python_home) }}
 # end if install-mode == 'local'
 {% endif %}
 {% endfor %}
