@@ -23,10 +23,15 @@
 {% endmacro %}
 
 {% macro install_firefox(ver, install_source) %}
+{% set install_source = install_source|trim %}
 {% set lang = 'en-US' %}
+{%  set pkg = 'Firefox%20Setup%20' ~ ver ~ '.exe' %}
+{% if not install_source.startswith('https') %}
+  {% set pkg = pkg | replace("%20", " ") %}
+{% endif %}
   '{{ ver }}':
     full_name: 'Mozilla Firefox (x64 {{ lang }})'
-    installer: {{ install_source|trim }}/{{ lang }}/Firefox%20Setup%20{{ ver }}.exe
+    installer: {{ install_source }}/{{ lang }}/{{ pkg }}
     install_flags: '/S'
     uninstaller: '%ProgramFiles%\Mozilla Firefox\uninstall\helper.exe'
     uninstall_flags: '/S'
