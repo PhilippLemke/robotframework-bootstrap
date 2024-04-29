@@ -11,5 +11,5 @@ env-local-download:
 {% elif install_mode == 'cloud' %}
 download-from-cloud-repo:
   cmd.run:
-    - name: aws s3 sync s3://{{s3_bucket}} {{inst_local_pkg_path}}
+    - name: aws s3 sync s3://{{s3_bucket}}/blobs {{inst_local_pkg_path}}
 {% endif %}
