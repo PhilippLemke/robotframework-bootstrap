@@ -16,7 +16,6 @@
     #installer: {{ install_source|trim }}/Greenshot-INSTALLER-{{ ver }}-RELEASE.exe
     installer: {{ install_source|trim }}/v{{ ver }}/Git-{{ ver }}-64-bit.exe
     #https://github.com/git-for-windows/git/releases/download/v2.45.0.windows.1/Git-2.45.0-64-bit.exe
-    #installer: https://github.com/git-for-windows/git/releases/download/v{{ extended_version }}/Git-{{ version }}-{{ arch }}-bit.exe
     # It is impossible to downgrade git silently. It will always pop a message
     # that will cause salt to hang. `/SUPPRESSMSGBOXES` will suppress that
     # warning allowing salt to continue, but the package will not downgrade
