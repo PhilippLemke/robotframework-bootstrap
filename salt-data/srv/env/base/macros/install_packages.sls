@@ -10,6 +10,24 @@
     reboot: False
 {% endmacro %}
 
+{% macro install_git(ver, install_source) %}
+  '{{ ver }}':
+    full_name: 'Git'
+    #installer: {{ install_source|trim }}/Greenshot-INSTALLER-{{ ver }}-RELEASE.exe
+    installer: {{ install_source|trim }}/v{{ ver }}/Git-{{ ver }}-64-bit.exe
+    #https://github.com/git-for-windows/git/releases/download/v2.45.0.windows.1/Git-2.45.0-64-bit.exe
+    #installer: https://github.com/git-for-windows/git/releases/download/v{{ extended_version }}/Git-{{ version }}-{{ arch }}-bit.exe
+    # It is impossible to downgrade git silently. It will always pop a message
+    # that will cause salt to hang. `/SUPPRESSMSGBOXES` will suppress that
+    # warning allowing salt to continue, but the package will not downgrade
+    install_flags: /VERYSILENT /NORESTART /SP- /NOCANCEL /SUPPRESSMSGBOXES
+    uninstaller: forfiles
+    uninstall_flags: '/p "%ProgramFiles%\Git" /m unins*.exe /c "cmd /c @path /VERYSILENT /NORESTART"'
+    msiexec: False
+    locale: en_US
+    reboot: False
+{% endmacro %}
+
 {% macro install_greenshot(ver, install_source) %}
   '{{ ver }}':
     full_name: 'Greenshot {{ ver }}'
@@ -21,6 +39,7 @@
     locale: en_US
     reboot: False
 {% endmacro %}
+
 
 {% macro install_firefox(ver, install_source) %}
 {% set install_source = install_source|trim %}
