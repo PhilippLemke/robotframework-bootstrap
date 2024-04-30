@@ -18,7 +18,6 @@
 # Todo: Upgrade pip first"c:\program files\python39\python.exe" -m pip install --upgrade pip
 
 
-
 # Disable visual effects for best performance to ensure smooth edges for fonts and scroll list boxes are disabled. Important for RF ImageHorizonLibrary!
 set_visual_effects_for_best_performance:
   reg.present:
@@ -83,12 +82,6 @@ ensure-python-scripts-in-path:
 # end for loop sections in -> pip-packages:
 {% endif %}
 
-
-#python3_x64:
-#  pkg.installed:
-#  # 150.0 is added to all python versions by default on win64 systems (outside salt context) so has to be also respected here
-#    - version: 3.10.9150.0
-#    - refresh: True
 
 
 # install vscode extensions

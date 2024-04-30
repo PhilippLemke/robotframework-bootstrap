@@ -36,8 +36,15 @@ apps-common:
 #installed only on coding client
 apps-coding:
   vscode:
-    version: 1.87.2
+    version: 1.88.0
+    # saltenv: local
+    # all extensions located in the extension-source-dir will be installed
     extension-source-dir: blobs\vscode\extensions
+    # saltenv: cloud
+    # RF Bootstrap will download the extensions from s3 bucket and install them
+
+    # salenv: base / public
+    # all extensions listed here will be installed from the vscode marketplace
     #extensions:
     #  - d-biehl.robotcode
     #  - ms-python.python
