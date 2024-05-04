@@ -10,3 +10,12 @@
 {% set subfolder = 'blobs/' ~ software %}
 {{- protocol ~ '://' ~ subfolder -}}
 {%- endmacro %}
+
+{% macro app_install(app, version) -%}
+app-inst-{{app}}:
+  pkg.installed:
+    - name: {{ app }}
+    - version: {{ version }}
+    - refresh: True
+{%- endmacro %}
+
