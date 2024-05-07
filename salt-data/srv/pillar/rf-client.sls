@@ -44,10 +44,11 @@ apps-coding:
 
 # Requires a visual code installation
 # You can specify them withhout a specific version, but currently only for public install supported
-# Recommendation: Specify the extensions everytime with @version
+# Recommendation: Specify the extensions every time with @version
 vscode-extensions:
-  - d-biehl.robotcode@0.79.0
+  - d-biehl.robotcode@0.82.0
   - ms-python.python@2024.4.1
+  - korekontrol.saltstack@0.0.9
  
 
 # Some static settings
