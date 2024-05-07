@@ -4,21 +4,6 @@ import logging
 log = logging.getLogger(__name__)
 def_vscode_cmd='C:\\Program Files\\Microsoft VS Code\\bin\\code.cmd'
 
-#def install_extension(extension, version=None, vscode_cmd=def_vscode_cmd):
-#    """
-#    Install a VSCode extension using the specified extension ID
-#    """
-#    if version:
-#        extension = f"{extension}@{version}"
-#
-#    cmd = [vscode_cmd, "--install-extension", extension]
-#    try:
-#        subprocess.check_output(cmd, stderr=subprocess.STDOUT)
-#        return {'result': True, 'message': f"Extension {extension} installed successfully."}
-#    except subprocess.CalledProcessError as e:
-#        log.error(f"Failed to install extension {extension}: {e.output}")
-#        return {'result': False, 'message': e.output.decode()}
-
 def install_extension(extension, version=None, vscode_cmd=def_vscode_cmd):
     """
     Install a VSCode extension using the specified extension ID
@@ -26,7 +11,7 @@ def install_extension(extension, version=None, vscode_cmd=def_vscode_cmd):
     if version:
         extension = f"{extension}@{version}"
 
-    cmd = [vscode_cmd, "--install-extension", extension]
+    cmd = [vscode_cmd, "--install-extension", extension , "--force"]
     try:
         output = subprocess.check_output(cmd, stderr=subprocess.STDOUT)
         output_str = output.decode()  # Convert bytes to string
@@ -40,7 +25,7 @@ def install_extension(extension, version=None, vscode_cmd=def_vscode_cmd):
         return {'result': False, 'message': e.output.decode()}
 
 
-def uninstall_extension(extension, version=None, vscode_cmd='C:\\Program Files\\Microsoft VS Code\\bin\\code.cmd'):
+def uninstall_extension(extension, version=None, vscode_cmd=def_vscode_cmd):
     """
     Install a VSCode extension using the specified extension ID
     """
@@ -54,7 +39,7 @@ def uninstall_extension(extension, version=None, vscode_cmd='C:\\Program Files\\
         log.error(f"Failed to uninstall extension {extension}: {e.output}")
         return {'result': False, 'message': e.output.decode()}
 
-def list_extensions(vscode_cmd='C:\\Program Files\\Microsoft VS Code\\bin\\code.cmd'):
+def list_extensions(vscode_cmd=def_vscode_cmd):
     """
     List all installed VSCode extensions
     """

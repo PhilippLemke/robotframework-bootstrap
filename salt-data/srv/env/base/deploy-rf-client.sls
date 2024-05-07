@@ -2,7 +2,9 @@
 {% from "macros/install_base.sls" import app_install with context %}
 
 #{% set install_mode = salt['pillar.get']('install-mode', 'public') %}
-{% set install_mode = salt['config.get']('saltenv', 'public') %}
+# base = public
+{% set install_mode = salt['config.get']('saltenv', 'base') %}
+
 {% set client_role = salt['pillar.get']('client-role', 'coding') %}
 
 {% set python_home = salt['pillar.get']('python_home', 'set python_home in pillar') %}
@@ -73,41 +75,48 @@ ensure-python-scripts-in-path:
 {{ app_install(app, specs["version"]) }}
 {% endfor %}
 
+# install vscode extensions defined in pillars
+#vscode-extensions:
+#  - d-biehl.robotcode@0.79.0
+#  - ms-python.python@2024.5.11172159
 
-# install vscode extensions
-
-# Todo write a salt execution and state module to manage vscode extensions 
-{#
-{% set vscode_extension_source_dir = salt['pillar.get']('additional-apps:vscode:extension-source-dir', None)  %}
-{% set vscode_extensions = salt['pillar.get']('additional-apps:vscode:extensions', []) %}
-#}
+{% set vscode_extensions = salt['pillar.get']('vscode-extensions', []) %}
+{% set vscode_extension_source_dir = salt['pillar.get']('vscode_extension_source_dir', "Please define vscode_extenstion_source_dir  in pillar")  %}
 
 # First try to install locally provided extensions. The state iterates over extension-source-dir and installs all files with the suffix vsix
 {% if install_mode == 'local' %}
-{% if vscode_extension_source_dir %}
+{#
 {% set vscode_local_extensions = salt['file.readdir'](vscode_extension_source_dir)  %}
-{% for ext in vscode_local_extensions -%}
-{% if ext.endswith('vsix')%}
+#}
+{% for ext in vscode_extensions -%}
+{% set parts = ext.split('@') %}
+{% set ext = parts[0] %}
+{% set version = parts[1] if parts|length > 1 else None %}
+{% if not version %}
+version-for-vscode-ext-{{ ext }}:
+  test.configurable_test_state:
+    - name: undefined
+    - changes: False
+    - result: False
+    - comment: Please define version in pillar, that is necessary for cloud or local install
+# end if not version
+{% endif %}
 local-install-vscode-ext-{{ ext }}:
-  cmd.run:
-    - name: >
-        "{{ vscode_bin }}" --install-extension {{ vscode_extension_source_dir }}\{{ ext }}
-# endif ext.endswith('vsix')
-{% endif %}
+  vscode.extension_installed:
+    - name: {{ ext }}
+    - install_path: {{ vscode_extension_source_dir }}
+    - version: {{ version }}
 {% endfor %}
-# end if vscode_extension_source_dir
-{% endif %}
-
 # end if install_mode == 'local'
 {% endif %}
 
 # Try to install in pillar defined extension via internet
-{% if install_mode == 'public' %}
+{% if install_mode == 'base' %}
 {% for ext in vscode_extensions -%}
 install-vscode-ext-{{ ext }}:
-  cmd.run:
-    - name: >
-        "{{ vscode_bin }}" --install-extension {{ ext }}
+  vscode.extension_installed:
+    - name: {{ ext }}
+
 # end for loop ext in vscode_extensions
 {% endfor %}
 # end if install_mode == 'public'

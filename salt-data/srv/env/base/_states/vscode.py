@@ -1,7 +1,7 @@
 def __virtual__():
     return 'vscode'
 
-def extension_installed(name, version=None):
+def extension_installed(name, install_path=None, version=None):
     """
     Ensure that a VSCode extension is installed
     """
@@ -22,6 +22,7 @@ def extension_installed(name, version=None):
     # ('vscodevim.vim', '1.27.1')]
     #name=d-biehl.robotcode@0.79.0
 
+    ext_org_name = f"{name}"
     if "@" in name:
         name_parts = name.split('@')
         name = name_parts[0]
@@ -30,6 +31,7 @@ def extension_installed(name, version=None):
 
     for ext, cur_version in extension_installed:
         if name == ext:
+            #print(f"version={version} cur_version={cur_version}")
             if not version:
                 ret['result'] = True
                 ret['comment'] = f"Extension {name} is already installed."
@@ -45,7 +47,10 @@ def extension_installed(name, version=None):
         ret['comment'] = f"Extension {name} will be installed."
         return ret
 
-    install_info = __salt__['vscode.install_extension'](name, version)
+    if install_path:
+        ext_org_name = f"{install_path}/{name}-{version}.vsix"
+
+    install_info = __salt__['vscode.install_extension'](ext_org_name)
     if install_info['result']:
         ret['result'] = True
         ret['changes'][name] = 'Installed'
