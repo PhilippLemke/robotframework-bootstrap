@@ -3,10 +3,6 @@
 client-role: coding
 #role: execution-client
 
-install-mode: public
-#install-mode: [public|cloud|local]
-
-
 # Robot Framework Bootstrap-Config
 pip-packages:
   base:
@@ -15,7 +11,7 @@ pip-packages:
 
   robotframework:
     - PyScreeze==0.1.29
-    - PyAutoGUI==0.9.54
+    - PyAutoGUI==0.9.55
     - robotframework==6.0
     - robotframework-browser
     - robotframework-imagehorizonlibrary
@@ -31,30 +27,39 @@ pip-packages:
 apps-common:
   python3_x64:
     # 150.0 is added to all python versions by default on win64 systems (outside salt context) so has to be also respected here
-      version: 3.10.9150.0
+    version: 3.10.9150.0
+  git:
+    version: 2.45.0
 
 #installed only on coding client
 apps-coding:
   vscode:
     version: 1.88.0
-    # saltenv: local
-    # all extensions located in the extension-source-dir will be installed
-    extension-source-dir: blobs\vscode\extensions
-    # saltenv: cloud
-    # RF Bootstrap will download the extensions from s3 bucket and install them
-
-    # salenv: base / public
-    # all extensions listed here will be installed from the vscode marketplace
-    #extensions:
-    #  - d-biehl.robotcode
-    #  - ms-python.python
+    # in public mode inst
   firefox:
     version: 107.0
 
   greenshot:
     version: 1.2.10.6
 
+# Requires a visual code installation
+# You can specify them withhout a specific version, but currently only for public install supported
+# Recommandation: Specify the extensions everytime with @version
+vscode-extensions:
+  - d-biehl.robotcode@0.79.0
+  - ms-python.python@2024.4.1
+ 
+
 # Some static settings
 python_home: C:\Program Files\Python310
 pip_local_pkg_path: C:\RF-Bootstrap\pkgs\pip
+inst_local_pkg_path: C:\RF-Bootstrap\pkgs\blobs
 vscode_bin: 'C:\Program Files\Microsoft VS Code\bin\code.cmd'
+vscode_extension_source_dir: C:\RF-Bootstrap\pkgs\blobs\vscode\extensions
+
+{# TODO: Maybe we can use this in the future to use relative paths
+{#
+{% set salt_file_roots = salt['config.get']('file_roots','') %}
+{% set salt_base = salt_file_roots["base"][1] + '\\'  %}
+inst_local_pkg_path:  {{ salt_base }}
+#}
