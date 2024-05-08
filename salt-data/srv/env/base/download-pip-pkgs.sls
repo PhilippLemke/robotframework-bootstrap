@@ -9,7 +9,7 @@
 env-local-download:
   test.fail_without_changes:
     - name: Download is only available in the Environments public and cloud
-{% elif install_mode == 'cloud ' %}
+{% elif install_mode == 'cloud' %}
 {% if pip_packages|length > 0 %}
 # start for loop sections in -> pip-packages:
 {% for section, packages in pip_packages.items() %}
