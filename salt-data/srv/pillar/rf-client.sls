@@ -28,8 +28,12 @@ apps-common:
   python3_x64:
     # 150.0 is added to all python versions by default on win64 systems (outside salt context) so has to be also respected here
     version: 3.10.9150.0
+
   git:
     version: 2.45.0
+
+  nodejs:
+    version: 20.11.1
 
 #installed only on coding client
 apps-coding:
