@@ -11,7 +11,7 @@ pip-packages:
 
   robotframework:
     - PyScreeze==0.1.29
-    - PyAutoGUI==0.9.55
+    - PyAutoGUI==0.9.54
     - robotframework==6.0
     - robotframework-browser
     - robotframework-imagehorizonlibrary
