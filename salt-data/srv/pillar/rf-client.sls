@@ -26,7 +26,7 @@ pip-packages:
 #installed on coding and execution client
 apps-common:
   aws_cli:
-    version: 2.4.0
+    version: 2.15.42
 
   python3_x64:
     # 150.0 is added to all python versions by default on win64 systems (outside salt context) so has to be also respected here
