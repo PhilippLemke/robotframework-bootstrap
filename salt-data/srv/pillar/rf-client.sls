@@ -25,6 +25,9 @@ pip-packages:
 
 #installed on coding and execution client
 apps-common:
+  awscli:
+    version: 2.4.0
+
   python3_x64:
     # 150.0 is added to all python versions by default on win64 systems (outside salt context) so has to be also respected here
     version: 3.10.9150.0
@@ -38,7 +41,7 @@ apps-common:
 #installed only on coding client
 apps-coding:
   vscode:
-    version: 1.88.0
+    version: 1.89.1
     # in public mode inst
   firefox:
     version: 107.0
@@ -50,8 +53,8 @@ apps-coding:
 # You can specify them withhout a specific version, but currently only for public install supported
 # Recommendation: Specify the extensions every time with @version
 vscode-extensions:
-  - d-biehl.robotcode@0.82.0
-  - ms-python.python@2024.4.1
+  - d-biehl.robotcode@0.82.3
+  - ms-python.python@2024.6.0
   - korekontrol.saltstack@0.0.9
  
 
