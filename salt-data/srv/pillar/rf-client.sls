@@ -10,13 +10,16 @@ pip-packages:
     - requests
 
   robotframework:
-    - PyScreeze==0.1.29
-    - PyAutoGUI==0.9.54
     - robotframework==6.0
-    - robotframework-browser
-    - robotframework-imagehorizonlibrary
+    - robotframework-browser==18.3.0
     - robotframework-autoitlibrary
     - robotframework-crypto
+    - robotframework-screencaplibrary==1.6.0
+
+  imagehorizon:
+    - robotframework-imagehorizonlibrary==1.0
+    - PyScreeze==0.1.29
+    - PyAutoGUI==0.9.54
 
   robotmk:
     - mergedeep
