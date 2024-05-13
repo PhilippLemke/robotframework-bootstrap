@@ -1,4 +1,4 @@
-# Deploy Robotframework 
+# Deploy Robot Framework 
 
 ## Windows
 
@@ -16,18 +16,24 @@ Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope CurrentUser
 C:\Temp\bootstrap-salt.ps1 -RunService false -Version $saltversion
 ```
 
-#### Bootstrap Robotframework
+#### Bootstrap Robot Framework
+Prepare Installer
 ```powershell
 Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap-robotframework.ps1 -OutFile C:\Temp\bootstrap-robotframework.ps1
 C:\Temp\bootstrap-robotframework.ps1
+cmd
+```
 
+Install Robot Framework and additional software 
+```cmd
 cd /d C:\RF-Bootstrap\salt-app\
-salt-call --local --config-dir=C:\RF-Bootstrap\salt-data\conf state.apply deploy-rf-client pillar="{\"client-role\": \"coding\"}"
 
+salt-call --local --config-dir=C:\RF-Bootstrap\salt-data\conf saltutil.sync_all
+salt-call --local --config-dir=C:\RF-Bootstrap\salt-data\conf state.apply deploy-rf-client
 ```
 
 
-#### Bootstrap Robotframework old fashion way
+#### Bootstrap Robot Framework old fashion way
 ```powershell
 Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap-robotframework -OutFile C:\Temp\bootstrap-robotframework.ps1
 C:\Temp\bootstrap-robotframework.ps1
