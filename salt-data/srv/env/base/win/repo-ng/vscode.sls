@@ -1,9 +1,9 @@
 # original source: https://github.com/saltstack/salt-winrepo-ng/blob/master/vscode.sls
 
 {% set PROGRAM_FILES = "%ProgramFiles%" %}
-{% set VERSIONS = ['1.87.2', '1.85.1' ,'1.58.0'] %}
 
 {% set VERSIONS = (
+        ('1.89.1', 'dc96b837cf6bb4af9cd736aa3af08cf8279f7685'),
         ('1.87.2', '863d2581ecda6849923a2118d93a088b0745d9d6'),
         ('1.88.0', '5c3e652f63e798a5ac2f31ffd0d863669328dc4c'),
         ('1.73.1', '6261075646f055b99068d3688932416f2346dd3b'),
