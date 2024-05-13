@@ -25,7 +25,7 @@ pip-packages:
 
 #installed on coding and execution client
 apps-common:
-  awscli:
+  aws_cli:
     version: 2.4.0
 
   python3_x64:
