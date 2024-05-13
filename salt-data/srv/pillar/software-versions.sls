@@ -24,5 +24,6 @@ repo-ng-versions:
 
 # vscode versions including the version specific guid for public download
   vscode:
+    - ["1.89.1", "dc96b837cf6bb4af9cd736aa3af08cf8279f7685"]
     - ["1.88.0", "5c3e652f63e798a5ac2f31ffd0d863669328dc4c"]
     - ["1.58.0", "2d23c42a936db1c7b3b06f918cde29561cc47cd6"]
