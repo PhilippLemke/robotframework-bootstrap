@@ -15,6 +15,7 @@ pip-packages:
     - robotframework-autoitlibrary
     - robotframework-crypto
     - robotframework-screencaplibrary==1.6.0
+    - robotframework-tidy==4.11.0
 
   imagehorizon:
     - robotframework-imagehorizonlibrary==1.0
