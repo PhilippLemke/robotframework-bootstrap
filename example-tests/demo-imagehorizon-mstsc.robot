@@ -16,6 +16,7 @@ Demo RDP Tool
     Sleep    1
     ${location}=    Wait For    computer    timeout=2
     ImageHorizonLibrary.Click To The Right Of    ${location}    80
-    Type    Click with offset of 80
+    Type    Click right of "Computer" with offset 80 and type text
+    Sleep    3
     ${location}=    Wait For    mstsc_icon_mini   timeout=2
     ImageHorizonLibrary.Click To The Right Of    ${location}    355
