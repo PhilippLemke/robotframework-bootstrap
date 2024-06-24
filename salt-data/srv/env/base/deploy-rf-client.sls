@@ -1,6 +1,9 @@
 {% from "macros/pip.sls" import install_pip_package, install_pip_package_local with context %}
 {% from "macros/install_base.sls" import app_install with context %}
 
+include:
+  - aws.create-cli-config
+
 #{% set install_mode = salt['pillar.get']('install-mode', 'public') %}
 # base = public
 {% set install_mode = salt['config.get']('saltenv', 'base') %}
@@ -123,3 +126,4 @@ install-vscode-ext-{{ ext }}:
 {% endif %}
 # end if client-role
 {% endif %}
+
