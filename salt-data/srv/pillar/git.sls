@@ -8,9 +8,9 @@
 git_repos:
   Markdown-Cheatsheet:
     remote_url: https://github.com/lifeparticle
-    target_dir: 'C:\temp\DSM'
+    target_dir: 'C:\temp\git'
     #branch: main
 
   robotframework-cookbook:
     remote_url: https://github.com/adrianyorke/
-    target_dir: 'C:\temp\DSM'
+    target_dir: 'C:\temp\git'
