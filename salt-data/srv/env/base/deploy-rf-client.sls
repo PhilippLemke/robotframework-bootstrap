@@ -1,9 +1,10 @@
 {% from "macros/pip.sls" import install_pip_package, install_pip_package_local with context %}
-{% from "macros/install_base.sls" import app_install with context %}
+{% from "macros/install_base.sls" import app_install, vscode_local_extension_install with context %}
 {% from "macros/aws.sls" import download_aws_package with context %}
 
 include:
   - aws.create-cli-config
+  - regedit.set_visual_effects
 
 #{% set install_mode = salt['pillar.get']('install-mode', 'public') %}
 # base = public
@@ -21,16 +22,6 @@ include:
 {% set pip_local_pkg_path = salt['pillar.get']('pip_local_pkg_path', 'set pip-local-pkg-path in pillar') %}
 {% set s3_bucket = salt['config.get']('s3.bucket', 'specify s3_bucket in pillars') %}
 {% set inst_local_pkg_path = salt['pillar.get']('inst_local_pkg_path', 'set inst-local-pkg-path in pillar') %}
-
-# Todo: Upgrade pip first"c:\program files\python39\python.exe" -m pip install --upgrade pip
-
-# Disable visual effects for best performance to ensure smooth edges for fonts and scroll list boxes are disabled. Important for RF ImageHorizonLibrary!
-set_visual_effects_for_best_performance:
-  reg.present:
-    - name: HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects
-    - vname: VisualFXSetting
-    - vdata: 2
-    - vtype: REG_DWORD
 
 # install common apps for all environments
 {% for app, specs in apps_common.items() %}
@@ -54,6 +45,7 @@ ensure-python-scripts-in-path:
 {% endif %}
 
 
+# Todo: Upgrade pip first"c:\program files\python39\python.exe" -m pip install --upgrade pip
 {% if pip_packages|length > 0 %}
 # start for loop sections in -> pip-packages:
 {% for section, packages in pip_packages.items() %}
@@ -84,7 +76,7 @@ ensure-python-scripts-in-path:
 {% set vscode_extension_source_dir = salt['pillar.get']('vscode_extension_source_dir', "Please define vscode_extenstion_source_dir  in pillar")  %}
 
 {% if install_mode == 'local' %}
-{{ vscode_local_extension_install(vscode_extensions) }}
+{{ vscode_local_extension_install(vscode_extensions, vscode_extension_source_dir) }}
 
 # Try to install in pillar defined extension via internet
 {% elif install_mode == 'base' %}
@@ -98,7 +90,7 @@ install-vscode-ext-{{ ext }}:
 {% elif install_mode == 'cloud' %}
 # Example inst_local_pkg_path: C:\RF-Bootstrap\pkgs\blobs
 {{ download_aws_package(s3_bucket, 'blobs/vscode/extensions', vscode_extension_source_dir) }}
-{{ vscode_local_extension_install(vscode_extensions) }}
+{{ vscode_local_extension_install(vscode_extensions, vscode_extension_source_dir) }}
 
 # end if install_mode == base, cloud or local
 {% endif %}

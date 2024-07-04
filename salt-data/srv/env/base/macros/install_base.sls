@@ -19,7 +19,7 @@ app-inst-{{app}}:
     - refresh: True
 {%- endmacro %}
 
-{% macro vscode_local_extension_install(vscode_extensions) -%}
+{% macro vscode_local_extension_install(vscode_extensions, vscode_extension_source_dir) -%}
 {% for ext in vscode_extensions -%}
 {% set parts = ext.split('@') %}
 {% set ext = parts[0] %}
