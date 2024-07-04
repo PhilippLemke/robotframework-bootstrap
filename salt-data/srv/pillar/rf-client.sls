@@ -27,6 +27,9 @@ pip-packages:
     - dateutils
     - pyyaml
 
+  aws:
+    - git-remote-codecommit
+
 #installed on coding and execution client
 apps-common:
   aws_cli:
