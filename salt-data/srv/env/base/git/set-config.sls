@@ -13,8 +13,8 @@ git_config_{{ section }}_{{ option }}:
 {% set code_commit_endpoint = salt['pillar.get']('code_commit_endpoint', None) %}
 {% if code_commit_endpoint %}
 set-code-commit-endpoint:
-  win_system.set_env:
+  environ.setenv:
     - name: CODE_COMMIT_ENDPOINT
     - value: {{ code_commit_endpoint }}
-    - machine: True
+    - permanent: HKLM
 {% endif %}
