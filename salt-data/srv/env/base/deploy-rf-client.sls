@@ -1,5 +1,6 @@
 {% from "macros/pip.sls" import install_pip_package, install_pip_package_local with context %}
 {% from "macros/install_base.sls" import app_install with context %}
+{% from "macros/aws.sls" import download_aws_package with context %}
 
 include:
   - aws.create-cli-config
@@ -18,6 +19,8 @@ include:
 {% set vscode_extension_source_dir = salt['pillar.get']('vscode_extension_source_dir', 'set vscode_extension_source_dir in pillar') %}
 {% set pip_packages = salt['pillar.get']('pip-packages', {}) %}
 {% set pip_local_pkg_path = salt['pillar.get']('pip_local_pkg_path', 'set pip-local-pkg-path in pillar') %}
+{% set s3_bucket = salt['config.get']('s3.bucket', 'specify s3_bucket in pillars') %}
+{% set inst_local_pkg_path = salt['pillar.get']('inst_local_pkg_path', 'set inst-local-pkg-path in pillar') %}
 
 # Todo: Upgrade pip first"c:\program files\python39\python.exe" -m pip install --upgrade pip
 
@@ -91,6 +94,7 @@ ensure-python-scripts-in-path:
 {#
 {% set vscode_local_extensions = salt['file.readdir'](vscode_extension_source_dir)  %}
 #}
+# TODO: Should be moved into a macro
 {% for ext in vscode_extensions -%}
 {% set parts = ext.split('@') %}
 {% set ext = parts[0] %}
@@ -111,18 +115,44 @@ local-install-vscode-ext-{{ ext }}:
     - version: {{ version }}
 {% endfor %}
 # end if install_mode == 'local'
-{% endif %}
 
 # Try to install in pillar defined extension via internet
-{% if install_mode == 'base' %}
+{% elif install_mode == 'base' %}
 {% for ext in vscode_extensions -%}
 install-vscode-ext-{{ ext }}:
   vscode.extension_installed:
     - name: {{ ext }}
-
 # end for loop ext in vscode_extensions
 {% endfor %}
-# end if install_mode == 'public'
+
+
+{% elif install_mode == 'cloud' %}
+# Example inst_local_pkg_path: C:\RF-Bootstrap\pkgs\blobs
+{{ download_aws_package(s3_bucket, 'blobs/vscode/extensions', vscode_extension_source_dir) }}
+
+# TODO: Should be moved into a macro
+{% for ext in vscode_extensions -%}
+{% set parts = ext.split('@') %}
+{% set ext = parts[0] %}
+{% set version = parts[1] if parts|length > 1 else None %}
+{% if not version %}
+version-for-vscode-ext-{{ ext }}:
+  test.configurable_test_state:
+    - name: undefined
+    - changes: False
+    - result: False
+    - comment: Please define version in pillar, that is necessary for cloud or local install
+# end if not version
+{% endif %}
+local-install-vscode-ext-{{ ext }}:
+  vscode.extension_installed:
+    - name: {{ ext }}
+    - install_path: {{ vscode_extension_source_dir }}
+    - version: {{ version }}
+{% endfor %}
+
+
+# end if install_mode == base, cloud or local
 {% endif %}
 # end if client-role
 {% endif %}
