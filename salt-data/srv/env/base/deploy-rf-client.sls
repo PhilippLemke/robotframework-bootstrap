@@ -72,7 +72,6 @@ ensure-python-scripts-in-path:
 # end for loop sections in -> pip-packages:
 {% endif %}
 
-
 # start if client-role
 {% if client_role == "coding" %}
 
@@ -81,40 +80,11 @@ ensure-python-scripts-in-path:
 {{ app_install(app, specs["version"]) }}
 {% endfor %}
 
-# install vscode extensions defined in pillars
-#vscode-extensions:
-#  - d-biehl.robotcode@0.79.0
-#  - ms-python.python@2024.5.11172159
-
 {% set vscode_extensions = salt['pillar.get']('vscode-extensions', []) %}
 {% set vscode_extension_source_dir = salt['pillar.get']('vscode_extension_source_dir', "Please define vscode_extenstion_source_dir  in pillar")  %}
 
-# First try to install locally provided extensions. The state iterates over extension-source-dir and installs all files with the suffix vsix
 {% if install_mode == 'local' %}
-{#
-{% set vscode_local_extensions = salt['file.readdir'](vscode_extension_source_dir)  %}
-#}
-# TODO: Should be moved into a macro
-{% for ext in vscode_extensions -%}
-{% set parts = ext.split('@') %}
-{% set ext = parts[0] %}
-{% set version = parts[1] if parts|length > 1 else None %}
-{% if not version %}
-version-for-vscode-ext-{{ ext }}:
-  test.configurable_test_state:
-    - name: undefined
-    - changes: False
-    - result: False
-    - comment: Please define version in pillar, that is necessary for cloud or local install
-# end if not version
-{% endif %}
-local-install-vscode-ext-{{ ext }}:
-  vscode.extension_installed:
-    - name: {{ ext }}
-    - install_path: {{ vscode_extension_source_dir }}
-    - version: {{ version }}
-{% endfor %}
-# end if install_mode == 'local'
+{{ vscode_local_extension_install(vscode_extensions) }}
 
 # Try to install in pillar defined extension via internet
 {% elif install_mode == 'base' %}
@@ -125,32 +95,10 @@ install-vscode-ext-{{ ext }}:
 # end for loop ext in vscode_extensions
 {% endfor %}
 
-
 {% elif install_mode == 'cloud' %}
 # Example inst_local_pkg_path: C:\RF-Bootstrap\pkgs\blobs
 {{ download_aws_package(s3_bucket, 'blobs/vscode/extensions', vscode_extension_source_dir) }}
-
-# TODO: Should be moved into a macro
-{% for ext in vscode_extensions -%}
-{% set parts = ext.split('@') %}
-{% set ext = parts[0] %}
-{% set version = parts[1] if parts|length > 1 else None %}
-{% if not version %}
-version-for-vscode-ext-{{ ext }}:
-  test.configurable_test_state:
-    - name: undefined
-    - changes: False
-    - result: False
-    - comment: Please define version in pillar, that is necessary for cloud or local install
-# end if not version
-{% endif %}
-local-install-vscode-ext-{{ ext }}:
-  vscode.extension_installed:
-    - name: {{ ext }}
-    - install_path: {{ vscode_extension_source_dir }}
-    - version: {{ version }}
-{% endfor %}
-
+{{ vscode_local_extension_install(vscode_extensions) }}
 
 # end if install_mode == base, cloud or local
 {% endif %}
