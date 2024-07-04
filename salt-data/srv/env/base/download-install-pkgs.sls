@@ -1,5 +1,3 @@
-{% from "macros/pip.sls" import download_pip_package with context %}
-
 {% set install_mode = salt['config.get']('saltenv', 'public') %}
 {% set inst_local_pkg_path = salt['pillar.get']('inst_local_pkg_path', 'set inst-local-pkg-path in pillar') %}
 {% set s3_bucket = salt['config.get']('s3.bucket', 'set s3_bucket in pillar cloud.sls') %}
