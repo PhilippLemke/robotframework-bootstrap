@@ -31,4 +31,4 @@ manage_aws_config:
     - template: jinja
     - user: {{ salt['grains.get']('username') }}
     - context:
-        aws_region: {{ salt['config.get']('s3.region', 'please specify s3.region in config') }}
+        aws_region: {{ salt['config.get']('s3.location', 'please specify s3.location in config') }}
