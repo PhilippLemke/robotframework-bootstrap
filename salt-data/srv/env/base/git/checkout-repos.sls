@@ -25,5 +25,5 @@ git_config_safe_directories:
 {% for repo, options in git_repos.items() %}
 {% set target_dir = options.get('target_dir', 'Please specify target_dir in pillars ') %}
 {% set target = target_dir + "\\" + repo %}
-      - {{ target }}
+      - {{ target  | replace('\\', '/')  }}
 {% endfor %}
