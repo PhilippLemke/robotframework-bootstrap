@@ -18,3 +18,21 @@ set-code-commit-endpoint:
     - value: {{ code_commit_endpoint }}
     - permanent: HKLM
 {% endif %}
+
+# Configure git to use a proxy if configured in salt config
+{% set proxy_host = salt['config.get']('proxy_host') %}
+{% set proxy_port = salt['config.get']('proxy_port') %}
+{% if proxy_host and proxy_port != 0 %}
+git_config_set_http_proxy:
+  git.config_set:
+    - name: http.proxy
+    - value: {{ proxy_host }}:{{ proxy_port }}
+    - global: True
+
+git_config_set_https_proxy:
+  git.config_set:
+    - name: https.proxy
+    - value: {{ proxy_host }}:{{ proxy_port }} 
+    - global: True
+
+{% endif %}
