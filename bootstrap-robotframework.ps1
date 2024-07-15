@@ -1,12 +1,18 @@
+param (
+    [string]$Proxy
+)
+ 
  # Define the local path to save the installer
  $defRFInstallerPath= "C:\RF-Bootstrap"
  $defRepo= "PhilippLemke/robotframework-bootstrap"
  $gitSnap= "$defRFInstallerPath\git-snap"
  
+
  function Download-Repo {
     param (
         [string]$tmp_folder,
-        [string]$repo
+        [string]$repo,
+        [string]$Proxy
     )
 
     # Define the URL based on the $repo argument
@@ -16,7 +22,15 @@
     $outputFilePath = Join-Path -Path $tmp_folder -ChildPath "$($repo.Split('/')[-1]).zip"
 
     # Download bootstrap git content as zip-file and extract it to tmp
-    Invoke-WebRequest -Uri $url -OutFile $outputFilePath
+
+    if ($Proxy) {
+        Write-Output "Download via Proxy: $Proxy"
+        Invoke-WebRequest -Uri $url -OutFile $outputFilePath -Proxy $Proxy -ProxyUseDefaultCredentials
+    } else {
+        Write-Output "No Proxy configured, download directly."
+        Invoke-WebRequest -Uri $url -OutFile $outputFilePath
+    }
+
     Expand-Archive -Path $outputFilePath -DestinationPath $tmp_folder -Force
  }
 
@@ -71,7 +85,7 @@
  }
  
  Write-Output "Download and extract the git repository content"
- Download-Repo -tmp_folder $gitSnap -repo $defRepo
+ Download-Repo -tmp_folder $gitSnap -repo $defRepo -Proxy $Proxy
 
  Write-Output "Provide salt-data from git repository to $defRFInstallerPath."
  # Copy salt-data robotframework-bootstrap-master\salt-data to $defRFInstallerPath\.
