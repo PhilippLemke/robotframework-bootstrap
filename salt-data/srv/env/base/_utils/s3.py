@@ -24,18 +24,24 @@ except ImportError:
 
 log = logging.getLogger(__name__)
 
-# Retrieve proxy settings from Salt configuration
-proxy_host = __salt__["config.get"]("proxy_host", None)
-proxy_port = __salt__["config.get"]("proxy_port", None)
 
-# Define the proxy if host and port are configured
-if proxy_host and proxy_port:
-    proxies = {
-        "http": f"http://{proxy_host}:{proxy_port}",
-        "https": f"https://{proxy_host}:{proxy_port}",
-    }
-else:
-    proxies = None  # No proxy configuration
+def _get_proxy():
+    # Accessing the global Salt configuration
+    config = __opts__
+    # Retrieve proxy settings from Salt configuration
+    proxy_host = config.get("proxy_host", None)
+    proxy_port = config.get("proxy_port", None)
+
+    # Define the proxy if host and port are configured
+    if proxy_host and proxy_port:
+        proxies = {
+            "http": f"http://{proxy_host}:{proxy_port}",
+            "https": f"https://{proxy_host}:{proxy_port}",
+        }
+    else:
+        proxies = None  # No proxy configuration
+    log.info(f"Use Proxy: {proxies}")
+    return proxies
 
 
 def example_function():
@@ -123,7 +129,7 @@ def query(
     If region is not specified, an attempt to fetch the region from EC2 IAM
     metadata service will be made. Failing that, default is us-east-1
     """
-    example_function()
+
     if not HAS_REQUESTS:
         log.error("There was an error: requests is required for s3 access")
 
@@ -157,6 +163,8 @@ def query(
 
     if not location:
         location = salt.utils.aws.get_location()
+
+    proxies = _get_proxy()
 
     data = ""
     fh = None
