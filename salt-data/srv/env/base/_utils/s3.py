@@ -36,11 +36,11 @@ def _get_proxy():
     if proxy_host and proxy_port:
         proxies = {
             "http": f"http://{proxy_host}:{proxy_port}",
-            "https": f"https://{proxy_host}:{proxy_port}",
+            "https": f"http://{proxy_host}:{proxy_port}",
         }
     else:
         proxies = None  # No proxy configuration
-    log.info(f"Use Proxy: {proxies}")
+    log.info(f"Use Proxy configuration for s3 queries: {proxies}")
     return proxies
 
 
