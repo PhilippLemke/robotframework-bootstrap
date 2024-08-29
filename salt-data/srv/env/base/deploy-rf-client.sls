@@ -45,6 +45,10 @@ ensure-python-scripts-in-path:
 {% endif %}
 
 
+# overall check for cloud environment
+# if cloud skip python and pip installation via install_pip_package
+{% if not install_mode == 'cloud' %}
+
 # Todo: Upgrade pip first"c:\program files\python39\python.exe" -m pip install --upgrade pip
 {% if pip_packages|length > 0 %}
 # start for loop sections in -> pip-packages:
@@ -62,6 +66,9 @@ ensure-python-scripts-in-path:
 # end for loop package in packages:
 {% endfor %}
 # end for loop sections in -> pip-packages:
+{% endif %}
+
+# end overall check for cloud environment
 {% endif %}
 
 # start if client-role
