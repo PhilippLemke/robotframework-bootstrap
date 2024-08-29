@@ -62,6 +62,7 @@ apps-coding:
 vscode-extensions:
   - d-biehl.robotcode@0.82.3
   - ms-python.python@2024.6.0
+  - ms-python.debugpy@2024.6.0
   - korekontrol.saltstack@0.0.9
  
 
