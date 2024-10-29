@@ -31,16 +31,25 @@ def _get_proxy():
     # Retrieve proxy settings from Salt configuration
     proxy_host = config.get("proxy_host", None)
     proxy_port = config.get("proxy_port", None)
+    proxy_user = config.get("proxy_user", None)
+    proxy_password = config.get("proxy_password", None)
 
     # Define the proxy if host and port are configured
     if proxy_host and proxy_port:
+        # Include user authentication in the proxy URL if provided
+        if proxy_user and proxy_password:
+            proxy_auth = f"{proxy_user}:{proxy_password}@"
+        else:
+            proxy_auth = ""
+
         proxies = {
-            "http": f"http://{proxy_host}:{proxy_port}",
-            "https": f"http://{proxy_host}:{proxy_port}",
+            "http": f"http://{proxy_auth}{proxy_host}:{proxy_port}",
+            "https": f"http://{proxy_auth}{proxy_host}:{proxy_port}",
         }
     else:
         proxies = None  # No proxy configuration
-    log.info(f"Use Proxy configuration for s3 queries: {proxies}")
+
+    log.info(f"Using Proxy configuration for s3 queries: {proxies}")
     return proxies
 
 
