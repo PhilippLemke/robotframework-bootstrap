@@ -98,8 +98,9 @@ param(
     # root of the URL. This file is used to determine the name and location of
     # the installer in the repo. If repo.json is not found, it will look for the
     # file under the minor directory.
-    # Default is "https://repo.saltproject.io/salt/py3/windows"
-    [String]$RepoUrl = "https://repo.saltproject.io/salt/py3/windows",
+    # Default was "https://repo.saltproject.io/salt/py3/windows"
+    # New Default is "https://packages.broadcom.com/artifactory/saltproject-generic/windows"
+    [String]$RepoUrl = "https://packages.broadcom.com/artifactory/saltproject-generic/windows",
 
     [Parameter(Mandatory=$false, ValueFromPipeline=$True)]
     [Alias("c")]
@@ -341,18 +342,9 @@ if (!(Get-IsAdministrator)) {
 }
 
 #===============================================================================
-# Change RepoUrl for older versions
+# Add version to RepoUrl
 #===============================================================================
-$defaultUrl = "https://repo.saltproject.io/salt/py3/windows"
-$oldRepoUrl = "https://repo.saltproject.io/windows"
-$majorVersion = Get-MajorVersion -Version $Version
-if ( [Uri]($RepoUrl).AbsoluteUri -eq $defaultUrl ) {
-    # No customURL passed, let's check for a pre 3006 version
-    if ($majorVersion -lt "3006") {
-        # This is an older version, use the old URL
-        $RepoUrl = $oldRepoUrl
-    }
-}
+$RepoUrl = "$RepoUrl/$Version"
 
 #===============================================================================
 # Verify Parameters
