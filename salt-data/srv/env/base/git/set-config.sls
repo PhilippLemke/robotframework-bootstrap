@@ -22,17 +22,26 @@ set-code-commit-endpoint:
 # Configure git to use a proxy if configured in salt config
 {% set proxy_host = salt['config.get']('proxy_host') %}
 {% set proxy_port = salt['config.get']('proxy_port') %}
+{% set proxy_username = salt['config.get']('proxy_username', None) %}
+{% set proxy_password = salt['config.get']('proxy_password', None) %}
+
+
 {% if proxy_host and proxy_port != 0 %}
+{% set proxy_url = 'http://' + proxy_host + ':' + str(proxy_port) %}
+{% if proxy_username and proxy_password %}
+{% set proxy_url = 'http://' + proxy_username + ':' + proxy_password + '@' + proxy_host + ':' + str(proxy_port) %}
+{% endif %}
+
 git_config_set_http_proxy:
   git.config_set:
     - name: http.proxy
-    - value: {{ proxy_host }}:{{ proxy_port }}
+    - value: {{ proxy_url }}
     - global: True
 
 git_config_set_https_proxy:
   git.config_set:
     - name: https.proxy
-    - value: {{ proxy_host }}:{{ proxy_port }} 
+    - value: {{ proxy_url }}
     - global: True
 
 {% endif %}
