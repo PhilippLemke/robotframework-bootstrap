@@ -3,8 +3,8 @@ region = {{ aws_region }}
 
 {% if salt['config.get']('s3.proxy_username', '') and salt['config.get']('s3.proxy_password', '') %}
 s3 =
-    proxy_host = {{ salt['config.get']('s3.proxy_host', 'your_proxy_host') }}
-    proxy_port = {{ salt['config.get']('s3.proxy_port', 'your_proxy_port') }}
+    proxy_host = {{ salt['config.get']('s3.proxy_host', 'please_define_in_salt_conf') }}
+    proxy_port = {{ salt['config.get']('s3.proxy_port', 'please_define_in_salt_conf') }}
     proxy_username = {{ salt['config.get']('s3.proxy_username') }}
     proxy_password = {{ salt['config.get']('s3.proxy_password') }}
 {% endif %}
