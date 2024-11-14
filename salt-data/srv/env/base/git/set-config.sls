@@ -27,21 +27,21 @@ set-code-commit-endpoint:
 
 
 {% if proxy_host and proxy_port != 0 %}
-{% set proxy_url = 'http://' + proxy_host + ':' + str(proxy_port) %}
+{% set proxy_url = 'http://' + proxy_host + ':' %}
 {% if proxy_username and proxy_password %}
-{% set proxy_url = 'http://' + proxy_username + ':' + proxy_password + '@' + proxy_host + ':' + str(proxy_port) %}
+{% set proxy_url = 'http://' + proxy_username + ':' + proxy_password + '@' + proxy_host + ':' %}
 {% endif %}
 
 git_config_set_http_proxy:
   git.config_set:
     - name: http.proxy
-    - value: {{ proxy_url }}
+    - value: {{ proxy_url }}{{ proxy_port }}
     - global: True
 
 git_config_set_https_proxy:
   git.config_set:
     - name: https.proxy
-    - value: {{ proxy_url }}
+    - value: {{ proxy_url }}{{ proxy_port }}
     - global: True
 
 {% endif %}
