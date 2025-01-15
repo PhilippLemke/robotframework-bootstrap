@@ -1,7 +1,7 @@
 # Client Role coding or execution
 # Can be also set via cmd in deployment process
+#client-role: (coding|execution)
 client-role: coding
-#role: execution-client
 
 # Robot Framework Bootstrap-Config
 pip-packages:
