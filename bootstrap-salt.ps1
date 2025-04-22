@@ -121,7 +121,14 @@ param(
     # Proxy server URL in the format http://hostname:port or http://ip:port
     # The -ProxyUseDefaultCredentials flag is automatically used as well
     # Default is $null, which will disable the proxy option.
-    [String]$Proxy = $null
+    [String]$Proxy = $null,
+
+    [Parameter(Mandatory=$false)]
+    [Alias("i")]
+    # Ignore SSL errors. This is useful for testing with self-signed
+    # certificates. This is not recommended for production use.
+    # Default is $false, which will not ignore SSL errors.
+    [Switch]$IgnoreSSL = $false
 )
 
 # We'll check for help first because it really has no requirements
@@ -600,6 +607,29 @@ Write-Host "Downloading Installer: " -NoNewline
 Write-Verbose ""
 Write-Verbose "Salt File URL: $saltFileUrl"
 Write-Verbose "Local File: $localFile"
+
+# Run this code only, if the parameter -IgnoreSSL is set
+# This will ignore SSL errors and allow the script to download the file
+# from a server with an invalid SSL certificate
+
+if ($IgnoreSSL) {
+    Write-Host "Ignoring SSL errors" -ForegroundColor Yellow
+    # This will ignore SSL errors and allow the script to download the file
+    # from a server with an invalid SSL certificate
+    add-type @"
+using System.Net;
+using System.Security.Cryptography.X509Certificates;
+
+public class TrustAllCertsPolicy : ICertificatePolicy {
+    public bool CheckValidationResult(ServicePoint srvPoint, X509Certificate certificate,
+        WebRequest request, int certificateProblem) {
+        return true;
+    }
+}
+"@
+[System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+} 
+
 
 
 $webclient = New-Object System.Net.WebClient
