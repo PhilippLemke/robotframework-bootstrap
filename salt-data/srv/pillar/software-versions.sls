@@ -16,6 +16,7 @@ repo-ng-versions:
 
   nodejs:
     - 20.11.1
+    - 24.8.0
 
   python3_x64:
     - 3.10.9
