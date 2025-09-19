@@ -40,15 +40,15 @@ apps-common:
     version: 3.10.9150.0
 
   git:
-    version: 2.45.0
+    version: 2.51.0
 
   nodejs:
-    version: 20.11.1
+    version: 24.8.0
 
 #installed only on coding client
 apps-coding:
   vscode:
-    version: 1.89.1
+    version: 1.104.1
     # in public mode inst
   firefox:
     version: 107.0
@@ -60,11 +60,10 @@ apps-coding:
 # You can specify them withhout a specific version, but currently only for public install supported
 # Recommendation: Specify the extensions every time with @version
 vscode-extensions:
-  - d-biehl.robotcode@0.82.3
-  - ms-python.python@2024.6.0
-  - ms-python.debugpy@2024.6.0
+  - d-biehl.robotcode@1.8.0
+  - ms-python.python@2025.14.0
+  - ms-python.debugpy@2025.10.0
   - korekontrol.saltstack@0.0.9
- 
 
 # Some static settings
 python_home: C:\Program Files\Python310
