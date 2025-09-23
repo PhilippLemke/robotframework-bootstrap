@@ -50,8 +50,8 @@ apps-coding:
   vscode:
     version: 1.104.1
     # in public mode inst
-  firefox:
-    version: 107.0
+  #firefox:
+  #  version: 107.0
 
   greenshot:
     version: 1.2.10.6
