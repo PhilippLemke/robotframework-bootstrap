@@ -11,13 +11,16 @@ repo-ng-versions:
   git:
     - 2.45.0
     - 2.51.0
+    - 2.55.0.5
 
   greenshot:
     - 1.2.10.6
+    - 1.3.315
 
   nodejs:
     - 20.11.1
     - 24.8.0
+    - 24.21.0
 
   python3_x64:
     - 3.10.9
@@ -32,3 +35,4 @@ repo-ng-versions:
     - ["1.89.1", "dc96b837cf6bb4af9cd736aa3af08cf8279f7685"]
     - ["1.88.0", "5c3e652f63e798a5ac2f31ffd0d863669328dc4c"]
     - ["1.58.0", "2d23c42a936db1c7b3b06f918cde29561cc47cd6"]
+    - ["1.138.0", "7debcd0e2acdea1c52de81bf9ee1620444407dda"]

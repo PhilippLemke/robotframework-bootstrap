@@ -40,21 +40,19 @@ apps-common:
     version: 3.10.9150.0
 
   git:
-    version: 2.51.0
+    version: 2.55.0.5
 
   nodejs:
-    version: 24.8.0
+    version: 24.21.0
 
 #installed only on coding client
 apps-coding:
   vscode:
-    version: 1.104.1
+    version: 1.138.0
     # in public mode inst
-  #firefox:
-  #  version: 107.0
 
   greenshot:
-    version: 1.2.10.6
+    version: 1.3.315
 
 # Requires a visual code installation
 # You can specify them withhout a specific version, but currently only for public install supported
