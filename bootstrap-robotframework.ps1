@@ -6,7 +6,10 @@ param (
  $defRFInstallerPath= "C:\RF-Bootstrap"
  $defRepo= "PhilippLemke/robotframework-bootstrap"
  $gitSnap= "$defRFInstallerPath\git-snap"
- 
+ $cloudConfPath= "$defRFInstallerPath\salt-data\conf\minion.d\cloud.conf"
+ $cloudConfBackupPath= "$defRFInstallerPath\backup\cloud.conf"
+ $cloudConfRestored= $false
+
 
  function Download-Repo {
     param (
@@ -34,13 +37,32 @@ param (
     Expand-Archive -Path $outputFilePath -DestinationPath $tmp_folder -Force
  }
 
- 
+ # Back up an existing cloud.conf before it gets overwritten by the repository's example file
+ function Backup-CloudConf {
+     if (Test-Path -Path $cloudConfPath) {
+         Write-Output "Existing cloud.conf found, backing it up to $cloudConfBackupPath"
+         Copy-Item -Path $cloudConfPath -Destination $cloudConfBackupPath -Force
+     }
+ }
+
+ # Restore the previously backed up cloud.conf over the repository's example file
+ function Restore-CloudConf {
+     if (Test-Path -Path $cloudConfBackupPath) {
+         Write-Output "Restoring previous cloud.conf from $cloudConfBackupPath"
+         Copy-Item -Path $cloudConfBackupPath -Destination $cloudConfPath -Force
+         Remove-Item -Path $cloudConfBackupPath -Force
+         $script:cloudConfRestored = $true
+     }
+ }
+
+
  # Define your bootstrap directory structure here
  $directoryStructure = @{
      $defRFInstallerPath = @(
          "salt-app",
          "salt-var",
          "git-snap",
+         "backup",
          "pkgs/blobs",
          "pkgs/pip"
      )
@@ -69,7 +91,10 @@ param (
  
  # Call the function to create the directory structure
  Create-Directories -structure $directoryStructure
- 
+
+ # Back up a pre-existing cloud.conf before it can be overwritten by the bootstrap run
+ Backup-CloudConf
+
  # Define source and destination paths
  $sourcePath = "C:\Program Files\Salt Project\Salt"
  $destinationPath = $defRFInstallerPath + "\salt-app"
@@ -90,3 +115,11 @@ param (
  Write-Output "Provide salt-data from git repository to $defRFInstallerPath."
  # Copy salt-data robotframework-bootstrap-master\salt-data to $defRFInstallerPath\.
  Copy-Item -Path "$gitSnap\robotframework-bootstrap-master\salt-data" -Destination $defRFInstallerPath -Recurse -Force
+
+ # Restore a previously backed up cloud.conf over the example one just deployed above
+ Restore-CloudConf
+
+ if ($cloudConfRestored) {
+     Write-Output ""
+     Write-Output "NOTE: An existing cloud.conf was found before this run and has been restored to $cloudConfPath after the bootstrap update."
+ }
