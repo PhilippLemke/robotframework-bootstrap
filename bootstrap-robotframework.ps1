@@ -11,6 +11,15 @@ param (
  $cloudConfRestored= $false
 
 
+ # Print a section header to visually group the cmd output
+ function Write-Section {
+     param (
+         [string]$Title
+     )
+     Write-Output ""
+     Write-Host "# $Title" -ForegroundColor Cyan
+ }
+
  function Download-Repo {
     param (
         [string]$tmp_folder,
@@ -90,28 +99,33 @@ param (
  }
  
  # Call the function to create the directory structure
+ Write-Section "Create Directories"
  Create-Directories -structure $directoryStructure
 
  # Back up a pre-existing cloud.conf before it can be overwritten by the bootstrap run
+ Write-Section "Backup"
  Backup-CloudConf
 
  # Define source and destination paths
+ Write-Section "Copy"
  $sourcePath = "C:\Program Files\Salt Project\Salt"
  $destinationPath = $defRFInstallerPath + "\salt-app"
- 
+
  # Check if the source directory exists
  if (Test-Path -Path $sourcePath) {
-     
+
      # Copy the entire contents of the source directory to the destination, including subfolders
      Copy-Item -Path "$sourcePath\*" -Destination $destinationPath -Recurse -Force
      Write-Output "Copied contents from $sourcePath to $destinationPath."
  } else {
      Write-Output "Source directory does not exist: $sourcePath"
  }
- 
+
+ Write-Section "Download"
  Write-Output "Download and extract the git repository content"
  Download-Repo -tmp_folder $gitSnap -repo $defRepo -Proxy $Proxy
 
+ Write-Section "Deploy"
  Write-Output "Provide salt-data from git repository to $defRFInstallerPath."
  # Copy salt-data robotframework-bootstrap-master\salt-data to $defRFInstallerPath\.
  Copy-Item -Path "$gitSnap\robotframework-bootstrap-master\salt-data" -Destination $defRFInstallerPath -Recurse -Force
