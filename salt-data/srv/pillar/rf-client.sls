@@ -32,8 +32,8 @@ pip-packages:
 
 #installed on coding and execution client
 apps-common:
-  aws_cli:
-    version: 2.15.42.0
+  aws_cli:  # last ".0" here necessary
+    version: 2.36.48.0
 
   python3_x64:
     # 150.0 is added to all python versions by default on win64 systems (outside salt context) so has to be also respected here
@@ -58,9 +58,9 @@ apps-coding:
 # You can specify them withhout a specific version, but currently only for public install supported
 # Recommendation: Specify the extensions every time with @version
 vscode-extensions:
-  - d-biehl.robotcode@1.8.0
-  - ms-python.python@2025.14.0
-  - ms-python.debugpy@2025.10.0
+  - d-biehl.robotcode@2.7.0
+  - ms-python.python@2026.4.0
+  - ms-python.debugpy@2026.6.0
   - korekontrol.saltstack@0.0.9
 
 # Some static settings
