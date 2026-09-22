@@ -4,7 +4,7 @@ param (
 )
 
 # Current released version of this script. Bump this by hand every time a new git tag is cut.
-$scriptVersion = "v1.0.0"
+$scriptVersion = "v1.0.1"
 
 # Define the local path to save the installer
 $defRFInstallerPath = "C:\RF-Bootstrap"
