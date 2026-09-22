@@ -125,6 +125,30 @@ function Restore-CloudConf {
     }
 }
 
+# Do a quick TCP connectivity check against the proxy so a bad proxy fails fast and visibly, with
+# a single clear message, instead of surfacing as a cryptic WebException deep inside a download.
+function Test-Proxy {
+    param (
+        [string]$Proxy
+    )
+
+    try {
+        $uri = [System.Uri]$Proxy
+    } catch {
+        return $false
+    }
+
+    $tcpClient = New-Object System.Net.Sockets.TcpClient
+    try {
+        $asyncResult = $tcpClient.BeginConnect($uri.Host, $uri.Port, $null, $null)
+        return $asyncResult.AsyncWaitHandle.WaitOne(3000) -and $tcpClient.Connected
+    } catch {
+        return $false
+    } finally {
+        $tcpClient.Close()
+    }
+}
+
 # Read proxy_host/proxy_port out of an existing cloud.conf, if one is present, so a machine that's
 # already configured with a proxy doesn't need -Proxy passed by hand for the update check to work.
 function Get-ProxyFromCloudConf {
@@ -196,6 +220,20 @@ if (-not $Proxy) {
         Write-Section "Proxy"
         Write-Output "No -Proxy parameter given; using $detectedProxy from existing cloud.conf."
         $Proxy = $detectedProxy
+    }
+}
+
+# If a proxy is in use (explicit or detected above), check it's actually reachable before relying
+# on it for the version check and downloads below.
+if ($Proxy) {
+    Write-Section "Test Proxy"
+    Write-Output "Testing connectivity to $Proxy..."
+    Write-Host -NoNewline "Proxy reachable: "
+    if (Test-Proxy -Proxy $Proxy) {
+        Write-Host "OK" -ForegroundColor Green
+    } else {
+        Write-Host "FAILED" -ForegroundColor Red
+        Write-Output "Could not reach $Proxy within 3 seconds. Continuing anyway, but downloads through this proxy will likely fail."
     }
 }
 
