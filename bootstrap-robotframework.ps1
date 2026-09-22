@@ -125,6 +125,35 @@ function Restore-CloudConf {
     }
 }
 
+# Read proxy_host/proxy_port out of an existing cloud.conf, if one is present, so a machine that's
+# already configured with a proxy doesn't need -Proxy passed by hand for the update check to work.
+function Get-ProxyFromCloudConf {
+    param (
+        [string]$path
+    )
+
+    if (-not (Test-Path -Path $path)) {
+        return $null
+    }
+
+    $proxyHost = $null
+    $proxyPort = $null
+
+    foreach ($line in Get-Content -Path $path) {
+        if ($line -match '^\s*proxy_host:\s*(\S+)') {
+            $proxyHost = $Matches[1]
+        } elseif ($line -match '^\s*proxy_port:\s*(\S+)') {
+            $proxyPort = $Matches[1]
+        }
+    }
+
+    if ($proxyHost -and $proxyPort) {
+        return "http://${proxyHost}:${proxyPort}"
+    }
+
+    return $null
+}
+
 
 # Define your bootstrap directory structure here
 $directoryStructure = @{
@@ -156,6 +185,17 @@ function Create-Directories {
                 Write-Output "Directory already exists: $fullPath"
             }
         }
+    }
+}
+
+# If an existing cloud.conf already specifies a proxy and none was passed explicitly, use it for
+# the version check and downloads below.
+if (-not $Proxy) {
+    $detectedProxy = Get-ProxyFromCloudConf -path $cloudConfPath
+    if ($detectedProxy) {
+        Write-Section "Proxy"
+        Write-Output "No -Proxy parameter given; using $detectedProxy from existing cloud.conf."
+        $Proxy = $detectedProxy
     }
 }
 
