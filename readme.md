@@ -15,14 +15,12 @@ whether a newer release exists and re-launches itself as that version if so, so 
 one-liner below always ends up on the current release even if the file cached in `C:\Temp` is old.
 
 ```powershell
-Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap.ps1 -OutFile C:\Temp\bootstrap.ps1
-C:\Temp\bootstrap.ps1
-cmd
+Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap.ps1 -OutFile C:\Temp\bootstrap.ps1; C:\Temp\bootstrap.ps1; cmd
 ```
 
 With a proxy:
 ```powershell
-C:\Temp\bootstrap.ps1 -Proxy "http://myproxy.local:port"
+Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap.ps1 -OutFile C:\Temp\bootstrap.ps1; C:\Temp\bootstrap.ps1 -Proxy "http://myproxy.local:port"; cmd
 ```
 
 Install Robot Framework and additional software
