@@ -138,8 +138,28 @@ function Restore-CloudConf {
     }
 }
 
-# Do a quick TCP connectivity check against the proxy so a bad proxy fails fast and visibly, with
-# a single clear message, instead of surfacing as a cryptic WebException deep inside a download.
+# Quick TCP connectivity check against a host:port, with a short timeout. Used both for the proxy
+# reachability check and the direct-connection fallback check below.
+function Test-TcpConnection {
+    param (
+        [string]$ComputerName,
+        [int]$Port,
+        [int]$TimeoutMs = 3000
+    )
+
+    $tcpClient = New-Object System.Net.Sockets.TcpClient
+    try {
+        $asyncResult = $tcpClient.BeginConnect($ComputerName, $Port, $null, $null)
+        return $asyncResult.AsyncWaitHandle.WaitOne($TimeoutMs) -and $tcpClient.Connected
+    } catch {
+        return $false
+    } finally {
+        $tcpClient.Close()
+    }
+}
+
+# So a bad proxy fails fast and visibly, with a single clear message, instead of surfacing as a
+# cryptic WebException deep inside a download.
 function Test-Proxy {
     param (
         [string]$Proxy
@@ -151,15 +171,7 @@ function Test-Proxy {
         return $false
     }
 
-    $tcpClient = New-Object System.Net.Sockets.TcpClient
-    try {
-        $asyncResult = $tcpClient.BeginConnect($uri.Host, $uri.Port, $null, $null)
-        return $asyncResult.AsyncWaitHandle.WaitOne(3000) -and $tcpClient.Connected
-    } catch {
-        return $false
-    } finally {
-        $tcpClient.Close()
-    }
+    return Test-TcpConnection -ComputerName $uri.Host -Port $uri.Port
 }
 
 # Read proxy_host/proxy_port out of an existing cloud.conf, if one is present, so a machine that's
@@ -237,16 +249,32 @@ if (-not $Proxy) {
 }
 
 # If a proxy is in use (explicit or detected above), check it's actually reachable before relying
-# on it for the version check and downloads below.
+# on it for the version check and downloads below. If it isn't, fall back to a direct connection
+# check - if that works, continue without the proxy; if neither works, stop here rather than limp
+# through the rest of the run only to fail partway through.
 if ($Proxy) {
-    Write-Section "Test Proxy"
+    Write-Section "Test Connectivity"
     Write-Output "Testing connectivity to $Proxy..."
     Write-Host -NoNewline "Proxy reachable: "
     if (Test-Proxy -Proxy $Proxy) {
         Write-Host "OK" -ForegroundColor Green
     } else {
         Write-Host "FAILED" -ForegroundColor Red
-        Write-Output "Could not reach $Proxy within 3 seconds. Continuing anyway, but downloads through this proxy will likely fail."
+        Write-Output "Could not reach $Proxy within 3 seconds."
+        Write-Output ""
+        Write-Output "Fallback:"
+        Write-Output "Testing connectivity via a direct request https://github.com"
+        Write-Host -NoNewline "Github reachable: "
+        if (Test-TcpConnection -ComputerName "github.com" -Port 443) {
+            Write-Host "OK" -ForegroundColor Green
+            Write-Output "Direct connection to github.com works - continuing without the proxy."
+            $Proxy = $null
+        } else {
+            Write-Host "FAILED" -ForegroundColor Red
+            Write-Output ""
+            Write-Output "Please fix connectivity issues and start deployment again."
+            exit 1
+        }
     }
 }
 
