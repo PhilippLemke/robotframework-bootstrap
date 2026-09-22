@@ -94,17 +94,30 @@ function Download-Repo {
     # Construct the output file path
     $outputFilePath = Join-Path -Path $tmp_folder -ChildPath "$($repo.Split('/')[-1]).zip"
 
-    # Download bootstrap git content as zip-file and extract it to tmp
-
-    if ($Proxy) {
-        Write-Output "Download via Proxy: $Proxy"
-        Invoke-WebRequest -Uri $url -OutFile $outputFilePath -Proxy $Proxy -ProxyUseDefaultCredentials
-    } else {
-        Write-Output "No Proxy configured, download directly."
-        Invoke-WebRequest -Uri $url -OutFile $outputFilePath
+    # Start from a clean slate: a leftover extracted folder from a previous tag (which has a
+    # different folder name) would otherwise sit next to the new one, or - if this download fails
+    # - get silently picked up and deployed as if it were current.
+    if (Test-Path -Path $tmp_folder) {
+        Get-ChildItem -Path $tmp_folder -Force | Remove-Item -Recurse -Force
     }
 
-    Expand-Archive -Path $outputFilePath -DestinationPath $tmp_folder -Force
+    try {
+        if ($Proxy) {
+            Write-Output "Download via Proxy: $Proxy"
+            Invoke-WebRequest -Uri $url -OutFile $outputFilePath -Proxy $Proxy -ProxyUseDefaultCredentials -ErrorAction Stop
+        } else {
+            Write-Output "No Proxy configured, download directly."
+            Invoke-WebRequest -Uri $url -OutFile $outputFilePath -ErrorAction Stop
+        }
+
+        Expand-Archive -Path $outputFilePath -DestinationPath $tmp_folder -Force -ErrorAction Stop
+    } catch {
+        Write-Host "FAILED" -ForegroundColor Red
+        Write-Output "Could not download/extract $url ($($_.Exception.Message))."
+        return $false
+    }
+
+    return $true
 }
 
 # Back up an existing cloud.conf before it gets overwritten by the repository's example file
@@ -278,7 +291,11 @@ if (Test-Path -Path $sourcePath) {
 
 Write-Section "Download"
 Write-Output "Download and extract the git repository content ($scriptVersion)"
-Download-Repo -tmp_folder $gitSnap -repo $defRepo -tag $scriptVersion -Proxy $Proxy
+if (-not (Download-Repo -tmp_folder $gitSnap -repo $defRepo -tag $scriptVersion -Proxy $Proxy)) {
+    Write-Output ""
+    Write-Output "Aborting: could not download release $scriptVersion. Nothing has been deployed."
+    exit 1
+}
 
 Write-Section "Deploy"
 Write-Output "Provide salt-data from git repository to $defRFInstallerPath."
