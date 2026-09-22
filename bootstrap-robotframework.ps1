@@ -39,7 +39,7 @@ function Get-LatestTag {
             return (Invoke-RestMethod -Uri $uri -Headers @{ "User-Agent" = "robotframework-bootstrap" })[0].name
         }
     } catch {
-        Write-Output "Could not check for a newer version ($($_.Exception.Message)). Continuing with the current version ($scriptVersion)."
+        Write-Host "Could not check for a newer version ($($_.Exception.Message)). Continuing with the current version ($scriptVersion)."
         return $null
     }
 }
@@ -54,19 +54,19 @@ function Invoke-SelfUpdate {
         [string]$Proxy
     )
 
-    Write-Output "Newer version available: $tag (currently running $scriptVersion). Downloading and relaunching..."
+    Write-Host "Newer version available: $tag (currently running $scriptVersion). Downloading and relaunching..."
 
     $newScriptPath = Join-Path $env:TEMP "bootstrap-robotframework-$tag.ps1"
     $newScriptUrl = "https://raw.githubusercontent.com/$repo/$tag/bootstrap-robotframework.ps1"
 
     try {
         if ($Proxy) {
-            Invoke-WebRequest -Uri $newScriptUrl -OutFile $newScriptPath -Proxy $Proxy -ProxyUseDefaultCredentials
+            Invoke-WebRequest -Uri $newScriptUrl -OutFile $newScriptPath -Proxy $Proxy -ProxyUseDefaultCredentials -ErrorAction Stop
         } else {
-            Invoke-WebRequest -Uri $newScriptUrl -OutFile $newScriptPath
+            Invoke-WebRequest -Uri $newScriptUrl -OutFile $newScriptPath -ErrorAction Stop
         }
     } catch {
-        Write-Output "Failed to download the newer version ($($_.Exception.Message)). Continuing with the current version ($scriptVersion)."
+        Write-Host "Failed to download the newer version ($($_.Exception.Message)). Continuing with the current version ($scriptVersion)."
         return $false
     }
 
@@ -103,17 +103,17 @@ function Download-Repo {
 
     try {
         if ($Proxy) {
-            Write-Output "Download via Proxy: $Proxy"
+            Write-Host "Download via Proxy: $Proxy"
             Invoke-WebRequest -Uri $url -OutFile $outputFilePath -Proxy $Proxy -ProxyUseDefaultCredentials -ErrorAction Stop
         } else {
-            Write-Output "No Proxy configured, download directly."
+            Write-Host "No Proxy configured, download directly."
             Invoke-WebRequest -Uri $url -OutFile $outputFilePath -ErrorAction Stop
         }
 
         Expand-Archive -Path $outputFilePath -DestinationPath $tmp_folder -Force -ErrorAction Stop
     } catch {
         Write-Host "FAILED" -ForegroundColor Red
-        Write-Output "Could not download/extract $url ($($_.Exception.Message))."
+        Write-Host "Could not download/extract $url ($($_.Exception.Message))."
         return $false
     }
 
