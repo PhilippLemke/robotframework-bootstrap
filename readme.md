@@ -6,69 +6,82 @@
 
 1. Start Powershell as administrator
 
-#### Boostrap Salt
+#### Bootstrap (recommended)
+`bootstrap.ps1` is the single entry point. It resolves the latest released version of this repo
+(via a git tag, looked up through the GitHub API), downloads `bootstrap-salt.ps1` and
+`bootstrap-robotframework.ps1` from that release, installs Salt if it isn't already present, and
+then runs the Robot Framework bootstrap. `bootstrap-robotframework.ps1` also checks on every run
+whether a newer release exists and re-launches itself as that version if so, so re-running the
+one-liner below always ends up on the current release even if the file cached in `C:\Temp` is old.
+
 ```powershell
-$saltversion=3006.7
-New-Item -ItemType Directory -Force -Path C:\temp
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-Invoke-WebRequest -Uri https://winbootstrap.saltproject.io -OutFile C:\Temp\bootstrap-salt.ps1
-Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope CurrentUser
-C:\Temp\bootstrap-salt.ps1 -RunService false -Version $saltversion
+Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap.ps1 -OutFile C:\Temp\bootstrap.ps1; C:\Temp\bootstrap.ps1; cmd
 ```
 
-#### Bootstrap Robot Framework
-Prepare Installer
+With a proxy:
 ```powershell
-Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap-robotframework.ps1 -OutFile C:\Temp\bootstrap-robotframework.ps1
-C:\Temp\bootstrap-robotframework.ps1
-cmd
+Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap.ps1 -OutFile C:\Temp\bootstrap.ps1; C:\Temp\bootstrap.ps1 -Proxy "http://myproxy.local:port"; cmd
 ```
 
-Install Robot Framework and additional software 
+A specific release (skips the newer-version check and deploys exactly that tag):
+```powershell
+Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap.ps1 -OutFile C:\Temp\bootstrap.ps1; C:\Temp\bootstrap.ps1 -Version v1.0.5; cmd
+```
+`-Version` also works on `bootstrap-robotframework.ps1` directly. The latest release is the
+highest `vX.Y.Z` tag, and the script only self-updates to a release that is newer than itself.
+
+#### Software installation
+After deploying salt-data, `bootstrap-robotframework.ps1` installs Robot Framework and the
+additional software from the `cloud` Salt environment:
+
 ```cmd
 cd /d C:\RF-Bootstrap\salt-app\
-
-salt-call --local --config-dir=C:\RF-Bootstrap\salt-data\conf saltutil.sync_all
-salt-call --local --config-dir=C:\RF-Bootstrap\salt-data\conf state.apply deploy-rf-client
+salt-call --local --config-dir=C:\RF-Bootstrap\salt-data\conf pkg.refresh_db saltenv=cloud
+salt-call --local --config-dir=C:\RF-Bootstrap\salt-data\conf saltutil.sync_all saltenv=cloud
+salt-call --local --config-dir=C:\RF-Bootstrap\salt-data\conf state.apply deploy-rf-client saltenv=cloud -l info
 ```
 
-#### Bootstrap Robot Framework via Proxy ()
-```
-# Define the version of Salt and proxy settings
-$saltversion = "3006.7"
+- If `C:\RF-Bootstrap\salt-data\conf\minion.d\cloud.conf` still contains the example
+  configuration (empty `s3.keyid`/`s3.key` or bucket `myBucketName`), the script pauses and asks
+  you to edit it. Press Enter to re-check, or type `skip` to skip the installation. The script
+  then prints the commands above so you can run them later.
+- If cloud.conf configures a proxy (`proxy_host`/`proxy_port`) that is not reachable, the script
+  asks whether to install without the proxy for this run or to abort. Continuing writes a
+  temporary `minion.d\zz-no-proxy.conf` that overrides the proxy for Salt only while the
+  installation runs; cloud.conf itself is not changed.
+- If a step fails, the remaining steps are skipped and the script exits with code 1. Details are
+  in `C:\RF-Bootstrap\salt-var\salt.log`.
+- Pass `-SkipInstall` to `bootstrap.ps1` or `bootstrap-robotframework.ps1` to only deploy
+  salt-data, without installing software.
 
-# Set this variable to your proxy URL if needed, e.g., "http://proxyserver:port"
-$proxy = "http://myproxy.local:port"  
-
-# Create a directory to store the bootstrap script
-New-Item -ItemType Directory -Force -Path C:\temp
-
-# Set the security protocol to TLS 1.2
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-
-# Check if a proxy is needed and configure the web request accordingly
-if ($proxy -ne $null) {
-    $proxyUri = New-Object System.Uri($proxy)
-    # Download the bootstrap script using the specified proxy
-    Invoke-WebRequest -Uri "https://winbootstrap.saltproject.io" -OutFile C:\Temp\bootstrap-salt.ps1 -Proxy $proxyUri -ProxyUseDefaultCredentials
-} else {
-    # Download the bootstrap script without a proxy
-    Invoke-WebRequest -Uri "https://winbootstrap.saltproject.io" -OutFile C:\Temp\bootstrap-salt.ps1
-}
-
-# Set the execution policy to unrestricted for the current user
-Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope CurrentUser
-
-# Run the bootstrap script with specified options
-C:\Temp\bootstrap-salt.ps1 -RunService $false -Version $saltversion
-```
-
+#### Machine-specific settings
+`salt-data\srv\pillar\rf-client.sls` is overwritten with the release defaults on every run. Put
+machine-specific changes (e.g. `client-role`, versions, VS Code extensions) into
+`C:\RF-Bootstrap\salt-data\srv\pillar\rf-client-local.sls` instead. The script creates it with
+commented examples on first run and never overwrites it. Its values override the defaults. Dicts
+are merged, lists (e.g. `vscode-extensions`) replace the default list completely.
 
 #### Bootstrap Robot Framework old fashion way
 ```powershell
 Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap-robotframework -OutFile C:\Temp\bootstrap-robotframework.ps1
 C:\Temp\bootstrap-robotframework.ps1
 ```
+
+### Releasing a new version
+`bootstrap.ps1` and `bootstrap-robotframework.ps1` pick up new releases via git tags, not raw
+commits on `master`. To ship a change to clients:
+
+1. Merge the change to `master`.
+2. Bump `$scriptVersion` at the top of `bootstrap-robotframework.ps1` to the new tag you're about
+   to create (e.g. `v1.1.0`) and commit that.
+3. Tag the release and push the tag:
+   ```bash
+   git tag v1.1.0
+   git push origin v1.1.0
+   ```
+
+Clients will pick up `v1.1.0` the next time `bootstrap.ps1` is run, or the next time
+`bootstrap-robotframework.ps1` runs and detects it's outdated.
 
 ###  Build local installer for clients without internet access
 This will use the current version of salt to build an local installer
