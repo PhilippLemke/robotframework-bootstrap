@@ -28,26 +28,38 @@ function Invoke-Download {
     }
 }
 
-# Look up the most recently created git tag for $repo via the GitHub API (no git CLI required
-# on the target machine at this point). Falls back to master if the lookup fails or no tags
-# exist yet.
+# Look up the highest "vX.Y.Z" git tag for $repo via the GitHub API (no git CLI required on the
+# target machine at this point). Falls back to master if the lookup fails or no tags exist yet.
 function Get-LatestTag {
     param (
         [string]$repo
     )
 
-    $uri = "https://api.github.com/repos/$repo/tags"
+    $uri = "https://api.github.com/repos/$repo/tags?per_page=100"
 
     try {
         if ($Proxy) {
-            return (Invoke-RestMethod -Uri $uri -Proxy $Proxy -ProxyUseDefaultCredentials -Headers @{ "User-Agent" = "robotframework-bootstrap" })[0].name
+            $tags = Invoke-RestMethod -Uri $uri -Proxy $Proxy -ProxyUseDefaultCredentials -Headers @{ "User-Agent" = "robotframework-bootstrap" }
         } else {
-            return (Invoke-RestMethod -Uri $uri -Headers @{ "User-Agent" = "robotframework-bootstrap" })[0].name
+            $tags = Invoke-RestMethod -Uri $uri -Headers @{ "User-Agent" = "robotframework-bootstrap" }
         }
     } catch {
         Write-Host "Could not resolve the latest release tag ($($_.Exception.Message)). Falling back to master." -ForegroundColor Yellow
         return $null
     }
+
+    # The API doesn't order tags by version (v1.0.10 can end up behind v1.0.9), so pick the
+    # highest one here. Tags that aren't a version number are ignored.
+    $latestTag = $null
+    $latestVersion = $null
+    foreach ($tag in $tags) {
+        $version = $null
+        if ([version]::TryParse($tag.name.TrimStart('v'), [ref]$version) -and (-not $latestVersion -or $version -gt $latestVersion)) {
+            $latestTag = $tag.name
+            $latestVersion = $version
+        }
+    }
+    return $latestTag
 }
 
 $latestTag = Get-LatestTag -repo $repo

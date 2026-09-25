@@ -27,25 +27,38 @@ function Write-Section {
     Write-Host "# $Title" -ForegroundColor Cyan
 }
 
-# Look up the most recently created git tag for $repo via the GitHub API (no git CLI required)
+# Look up the highest "vX.Y.Z" git tag for $repo via the GitHub API (no git CLI required)
 function Get-LatestTag {
     param (
         [string]$repo,
         [string]$Proxy
     )
 
-    $uri = "https://api.github.com/repos/$repo/tags"
+    $uri = "https://api.github.com/repos/$repo/tags?per_page=100"
 
     try {
         if ($Proxy) {
-            return (Invoke-RestMethod -Uri $uri -Proxy $Proxy -ProxyUseDefaultCredentials -Headers @{ "User-Agent" = "robotframework-bootstrap" })[0].name
+            $tags = Invoke-RestMethod -Uri $uri -Proxy $Proxy -ProxyUseDefaultCredentials -Headers @{ "User-Agent" = "robotframework-bootstrap" }
         } else {
-            return (Invoke-RestMethod -Uri $uri -Headers @{ "User-Agent" = "robotframework-bootstrap" })[0].name
+            $tags = Invoke-RestMethod -Uri $uri -Headers @{ "User-Agent" = "robotframework-bootstrap" }
         }
     } catch {
         Write-Host "Could not check for a newer version ($($_.Exception.Message)). Continuing with the current version ($scriptVersion)."
         return $null
     }
+
+    # The API doesn't order tags by version (v1.0.10 can end up behind v1.0.9), so pick the
+    # highest one here. Tags that aren't a version number are ignored.
+    $latestTag = $null
+    $latestVersion = $null
+    foreach ($tag in $tags) {
+        $version = $null
+        if ([version]::TryParse($tag.name.TrimStart('v'), [ref]$version) -and (-not $latestVersion -or $version -gt $latestVersion)) {
+            $latestTag = $tag.name
+            $latestVersion = $version
+        }
+    }
+    return $latestTag
 }
 
 # Compare two "vX.Y.Z" tags. Only a strictly newer tag counts, so a script that is ahead of the
