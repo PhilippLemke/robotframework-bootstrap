@@ -1,6 +1,7 @@
 param (
     [string]$Proxy,
-    [switch]$AlreadyRelaunched
+    [switch]$AlreadyRelaunched,
+    [switch]$SkipInstall
 )
 
 # Current released version of this script. Bump this by hand every time a new git tag is cut.
@@ -14,6 +15,8 @@ $cloudConfPath = "$defRFInstallerPath\salt-data\conf\minion.d\cloud.conf"
 $cloudConfBackupPath = "$defRFInstallerPath\backup\cloud.conf"
 $cloudConfRestored = $false
 $rfClientLocalPath = "$defRFInstallerPath\salt-data\srv\pillar\rf-client-local.sls"
+$saltCallPath = "$defRFInstallerPath\salt-app\salt-call.exe"
+$saltConfDir = "$defRFInstallerPath\salt-data\conf"
 
 # Print a section header to visually group the cmd output
 function Write-Section {
@@ -74,6 +77,9 @@ function Invoke-SelfUpdate {
     $argString = "-NoProfile -ExecutionPolicy Bypass -File `"$newScriptPath`" -AlreadyRelaunched"
     if ($Proxy) {
         $argString += " -Proxy `"$Proxy`""
+    }
+    if ($SkipInstall) {
+        $argString += " -SkipInstall"
     }
 
     # Wait for the relaunched run so it keeps the console to itself (a caller like the README
@@ -169,6 +175,61 @@ function New-RfClientLocal {
         "#  - d-biehl.robotcode@2.7.0"
     )
     Set-Content -Path $rfClientLocalPath -Value $template -Encoding ASCII
+}
+
+# cloud.conf counts as configured once the S3 credentials are filled in and the bucket is no
+# longer the repository's example value.
+function Test-CloudConfConfigured {
+    if (-not (Test-Path -Path $cloudConfPath)) {
+        return $false
+    }
+
+    $values = @{}
+    foreach ($line in Get-Content -Path $cloudConfPath) {
+        if ($line -match '^\s*(s3\.keyid|s3\.key|s3\.bucket):\s*(.*?)\s*$') {
+            $values[$Matches[1]] = $Matches[2].Trim("'`"")
+        }
+    }
+
+    return [bool]($values['s3.keyid'] -and $values['s3.key'] -and $values['s3.bucket'] -and $values['s3.bucket'] -ne 'myBucketName')
+}
+
+# Keep asking until cloud.conf is configured, or the user skips the software installation.
+# Returns $true if the installation should run.
+function Wait-CloudConfConfigured {
+    while (-not (Test-CloudConfConfigured)) {
+        Write-Host "cloud.conf still contains the example configuration." -ForegroundColor Yellow
+        Write-Host "Please edit before continuing:"
+        Write-Host "  $cloudConfPath (s3.keyid, s3.key, s3.bucket)"
+        Write-Host "  $rfClientLocalPath (optional, machine-specific overrides of rf-client.sls)"
+        $answer = Read-Host "Press Enter when done, or type 'skip' to skip the software installation"
+        if ($answer -eq 'skip') {
+            return $false
+        }
+    }
+    return $true
+}
+
+# Run a single salt-call against the local RF-Bootstrap config. Its output is sent straight to the
+# host so it can't end up in the function's return value (see Download-Repo). Returns $true on
+# success.
+function Invoke-SaltCall {
+    param (
+        [string[]]$Arguments
+    )
+
+    Write-Host ""
+    Write-Host "salt-call $($Arguments -join ' ')"
+    & $saltCallPath --local "--config-dir=$saltConfDir" --retcode-passthrough @Arguments | Out-Host
+    return ($LASTEXITCODE -eq 0)
+}
+
+# Print the manual commands, for when the installation is skipped or has to be re-run by hand
+function Write-InstallCommands {
+    Write-Output "cd /d $defRFInstallerPath\salt-app\"
+    Write-Output "salt-call --local --config-dir=$saltConfDir pkg.refresh_db saltenv=cloud"
+    Write-Output "salt-call --local --config-dir=$saltConfDir saltutil.sync_all saltenv=cloud"
+    Write-Output "salt-call --local --config-dir=$saltConfDir state.apply deploy-rf-client saltenv=cloud -l info"
 }
 
 # Quick TCP connectivity check against a host:port, with a short timeout. Used both for the proxy
@@ -375,3 +436,32 @@ if ($cloudConfRestored) {
 
 # Seed the machine-specific pillar overrides after salt-data is in place
 New-RfClientLocal
+
+if ($SkipInstall) {
+    Write-Output ""
+    Write-Output "-SkipInstall given: skipping the software installation."
+    exit
+}
+
+Write-Section "Install Software"
+if (-not (Wait-CloudConfConfigured)) {
+    Write-Output "Software installation skipped. Run it later with:"
+    Write-InstallCommands
+    exit
+}
+
+$saltSteps = @(
+    @("pkg.refresh_db", "saltenv=cloud"),
+    @("saltutil.sync_all", "saltenv=cloud"),
+    @("state.apply", "deploy-rf-client", "saltenv=cloud", "-l", "info")
+)
+foreach ($step in $saltSteps) {
+    if (-not (Invoke-SaltCall -Arguments $step)) {
+        Write-Host "FAILED" -ForegroundColor Red
+        Write-Output "salt-call $($step -join ' ') failed. See $defRFInstallerPath\salt-var\salt.log for details."
+        exit 1
+    }
+}
+
+Write-Output ""
+Write-Host "Software installation finished." -ForegroundColor Green

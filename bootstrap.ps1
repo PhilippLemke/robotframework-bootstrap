@@ -1,5 +1,6 @@
 param (
-    [string]$Proxy
+    [string]$Proxy,
+    [switch]$SkipInstall
 )
 
 $saltVersion = "3006.19"
@@ -79,7 +80,7 @@ if (-not (Test-Path -Path $saltFolderPath)) {
 
 Write-Host "Running bootstrap-robotframework.ps1 ($ref)..."
 if ($Proxy) {
-    & $bootstrapRobotFrameworkPath -Proxy $Proxy
+    & $bootstrapRobotFrameworkPath -Proxy $Proxy -SkipInstall:$SkipInstall
 } else {
-    & $bootstrapRobotFrameworkPath
+    & $bootstrapRobotFrameworkPath -SkipInstall:$SkipInstall
 }
