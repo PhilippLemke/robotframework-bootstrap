@@ -1,6 +1,8 @@
 param (
     [string]$Proxy,
-    [switch]$SkipInstall
+    [switch]$SkipInstall,
+    # Deploy exactly this release (e.g. v1.0.5) instead of the latest one
+    [string]$Version
 )
 
 $saltVersion = "3006.19"
@@ -90,9 +92,18 @@ if (-not (Test-Path -Path $saltFolderPath)) {
     Write-Host "Salt installation detected at $saltFolderPath. Skipping Salt installation steps."
 }
 
-Write-Host "Running bootstrap-robotframework.ps1 ($ref)..."
+# Only pass the options that are actually set, so the call also works with a latest release that
+# predates them. A requested -Version is resolved by bootstrap-robotframework.ps1 itself.
+$bootstrapArgs = @{}
 if ($Proxy) {
-    & $bootstrapRobotFrameworkPath -Proxy $Proxy -SkipInstall:$SkipInstall
-} else {
-    & $bootstrapRobotFrameworkPath -SkipInstall:$SkipInstall
+    $bootstrapArgs.Proxy = $Proxy
 }
+if ($SkipInstall) {
+    $bootstrapArgs.SkipInstall = $true
+}
+if ($Version) {
+    $bootstrapArgs.Version = $Version
+}
+
+Write-Host "Running bootstrap-robotframework.ps1 ($ref)..."
+& $bootstrapRobotFrameworkPath @bootstrapArgs

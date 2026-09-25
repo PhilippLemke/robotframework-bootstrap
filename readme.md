@@ -23,6 +23,13 @@ With a proxy:
 Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap.ps1 -OutFile C:\Temp\bootstrap.ps1; C:\Temp\bootstrap.ps1 -Proxy "http://myproxy.local:port"; cmd
 ```
 
+A specific release (skips the newer-version check and deploys exactly that tag):
+```powershell
+Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap.ps1 -OutFile C:\Temp\bootstrap.ps1; C:\Temp\bootstrap.ps1 -Version v1.0.5; cmd
+```
+`-Version` also works on `bootstrap-robotframework.ps1` directly. The latest release is the
+highest `vX.Y.Z` tag, and the script only self-updates to a release that is newer than itself.
+
 #### Software installation
 After deploying salt-data, `bootstrap-robotframework.ps1` installs Robot Framework and the
 additional software from the `cloud` Salt environment:

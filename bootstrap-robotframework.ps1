@@ -1,7 +1,9 @@
 param (
     [string]$Proxy,
     [switch]$AlreadyRelaunched,
-    [switch]$SkipInstall
+    [switch]$SkipInstall,
+    # Deploy exactly this release (e.g. v1.0.5) instead of the latest one
+    [string]$Version
 )
 
 # Current released version of this script. Bump this by hand every time a new git tag is cut.
@@ -80,9 +82,9 @@ function Test-NewerVersion {
     return $tagVersion -gt $currentVersion
 }
 
-# Download the newer script and hand execution off to it, so the update is applied by the new
-# code instead of this (outdated) run finishing the job. Guarded by -AlreadyRelaunched so a stale
-# $scriptVersion can never cause more than one relaunch.
+# Download the script of release $tag and hand execution off to it, so that release's code does
+# the deployment instead of this run. Used for self-updates and for -Version. Guarded by
+# -AlreadyRelaunched so a stale $scriptVersion can never cause more than one relaunch.
 function Invoke-SelfUpdate {
     param (
         [string]$repo,
@@ -90,7 +92,7 @@ function Invoke-SelfUpdate {
         [string]$Proxy
     )
 
-    Write-Host "Newer version available: $tag (currently running $scriptVersion). Downloading and relaunching..."
+    Write-Host "Downloading $tag (currently running $scriptVersion) and relaunching..."
 
     $newScriptPath = Join-Path $env:TEMP "bootstrap-robotframework-$tag.ps1"
     $newScriptUrl = "https://raw.githubusercontent.com/$repo/$tag/bootstrap-robotframework.ps1"
@@ -102,7 +104,7 @@ function Invoke-SelfUpdate {
             Invoke-WebRequest -Uri $newScriptUrl -OutFile $newScriptPath -ErrorAction Stop
         }
     } catch {
-        Write-Host "Failed to download the newer version ($($_.Exception.Message)). Continuing with the current version ($scriptVersion)."
+        Write-Host "Failed to download $tag ($($_.Exception.Message))."
         return $false
     }
 
@@ -110,8 +112,13 @@ function Invoke-SelfUpdate {
     if ($Proxy) {
         $argString += " -Proxy `"$Proxy`""
     }
+    # Releases before v1.1.0 don't know -SkipInstall (and never install software anyway)
     if ($SkipInstall) {
-        $argString += " -SkipInstall"
+        if (Test-NewerVersion -tag "v1.1.0" -current $tag) {
+            Write-Host "$tag has no software installation step, -SkipInstall is not needed."
+        } else {
+            $argString += " -SkipInstall"
+        }
     }
 
     # Wait for the relaunched run so it keeps the console to itself (a caller like the README
@@ -404,17 +411,42 @@ if ($Proxy) {
     }
 }
 
-# Check for a newer released version before doing any real work, and hand off to it if found.
-# Skipped on the relaunched (already-updated) run, so a stale $scriptVersion can never cause
-# more than one relaunch.
-if (-not $AlreadyRelaunched) {
+# With -Version, deploy exactly that release: hand off to its script unless this is already it.
+# The relaunched script is started without -Version, since releases before v1.1.0 don't know it.
+# Its $scriptVersion is the requested one and -AlreadyRelaunched skips its own version check.
+if ($Version -and -not $AlreadyRelaunched) {
+    if (-not $Version.StartsWith('v')) {
+        $Version = "v$Version"
+    }
+
+    Write-Section "Version Check"
+    if ($Version -eq $scriptVersion) {
+        Write-Output "Deploying the requested version ($Version)."
+    } else {
+        Write-Output "Requested version: $Version."
+        if (-not (Invoke-SelfUpdate -repo $defRepo -tag $Version -Proxy $Proxy)) {
+            Write-Output ""
+            Write-Output "Aborting: could not download version $Version. Nothing has been deployed."
+            exit 1
+        }
+        Write-Output "Relaunched run ($Version) finished."
+        exit $relaunchExitCode
+    }
+}
+
+# Otherwise check for a newer released version before doing any real work, and hand off to it if
+# found. Skipped on the relaunched (already-updated) run, so a stale $scriptVersion can never
+# cause more than one relaunch.
+if (-not $Version -and -not $AlreadyRelaunched) {
     Write-Section "Version Check"
     $latestTag = Get-LatestTag -repo $defRepo -Proxy $Proxy
     if ($latestTag -and (Test-NewerVersion -tag $latestTag -current $scriptVersion)) {
+        Write-Output "Newer version available: $latestTag."
         if (Invoke-SelfUpdate -repo $defRepo -tag $latestTag -Proxy $Proxy) {
             Write-Output "Relaunched run ($latestTag) finished. Exiting this (outdated) run."
             exit $relaunchExitCode
         }
+        Write-Output "Continuing with the current version ($scriptVersion)."
     } else {
         Write-Output "Running the current version ($scriptVersion)."
     }
