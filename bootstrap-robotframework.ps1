@@ -48,6 +48,25 @@ function Get-LatestTag {
     }
 }
 
+# Compare two "vX.Y.Z" tags. Only a strictly newer tag counts, so a script that is ahead of the
+# latest tag (e.g. before its release is tagged) never "updates" to an older version. Tags that
+# don't parse as a version are never treated as newer.
+function Test-NewerVersion {
+    param (
+        [string]$tag,
+        [string]$current
+    )
+
+    $tagVersion = $null
+    $currentVersion = $null
+    if (-not [version]::TryParse($tag.TrimStart('v'), [ref]$tagVersion) -or
+        -not [version]::TryParse($current.TrimStart('v'), [ref]$currentVersion)) {
+        return $false
+    }
+
+    return $tagVersion -gt $currentVersion
+}
+
 # Download the newer script and hand execution off to it, so the update is applied by the new
 # code instead of this (outdated) run finishing the job. Guarded by -AlreadyRelaunched so a stale
 # $scriptVersion can never cause more than one relaunch.
@@ -378,7 +397,7 @@ if ($Proxy) {
 if (-not $AlreadyRelaunched) {
     Write-Section "Version Check"
     $latestTag = Get-LatestTag -repo $defRepo -Proxy $Proxy
-    if ($latestTag -and $latestTag -ne $scriptVersion) {
+    if ($latestTag -and (Test-NewerVersion -tag $latestTag -current $scriptVersion)) {
         if (Invoke-SelfUpdate -repo $defRepo -tag $latestTag -Proxy $Proxy) {
             Write-Output "Relaunched run ($latestTag) finished. Exiting this (outdated) run."
             exit $relaunchExitCode
