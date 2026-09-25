@@ -13,6 +13,7 @@ $gitSnap = "$defRFInstallerPath\git-snap"
 $cloudConfPath = "$defRFInstallerPath\salt-data\conf\minion.d\cloud.conf"
 $cloudConfBackupPath = "$defRFInstallerPath\backup\cloud.conf"
 $cloudConfRestored = $false
+$rfClientLocalPath = "$defRFInstallerPath\salt-data\srv\pillar\rf-client-local.sls"
 
 # Print a section header to visually group the cmd output
 function Write-Section {
@@ -140,6 +141,34 @@ function Restore-CloudConf {
         Remove-Item -Path $cloudConfBackupPath -Force
         $script:cloudConfRestored = $true
     }
+}
+
+# Create the machine-specific pillar override file if it doesn't exist yet. It isn't part of the
+# repository, so deploying salt-data never overwrites it, while rf-client.sls itself stays
+# updatable with each release.
+function New-RfClientLocal {
+    if (Test-Path -Path $rfClientLocalPath) {
+        Write-Output "Local pillar overrides found: $rfClientLocalPath"
+        return
+    }
+
+    Write-Output "Creating local pillar override template: $rfClientLocalPath"
+    $template = @(
+        "# Machine-specific overrides for rf-client.sls / software-versions.sls."
+        "# This file is not part of the repository and is never overwritten by the bootstrap."
+        "# Dicts are merged with the defaults, lists (e.g. vscode-extensions) replace them completely."
+        "#"
+        "# Examples:"
+        "#client-role: execution"
+        "#"
+        "#apps-coding:"
+        "#  vscode:"
+        "#    version: 1.138.0"
+        "#"
+        "#vscode-extensions:"
+        "#  - d-biehl.robotcode@2.7.0"
+    )
+    Set-Content -Path $rfClientLocalPath -Value $template -Encoding ASCII
 }
 
 # Quick TCP connectivity check against a host:port, with a short timeout. Used both for the proxy
@@ -343,3 +372,6 @@ if ($cloudConfRestored) {
     Write-Output ""
     Write-Output "NOTE: An existing cloud.conf was found before this run and has been restored to $cloudConfPath after the bootstrap update."
 }
+
+# Seed the machine-specific pillar overrides after salt-data is in place
+New-RfClientLocal
