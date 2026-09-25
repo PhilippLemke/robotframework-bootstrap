@@ -23,13 +23,32 @@ With a proxy:
 Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap.ps1 -OutFile C:\Temp\bootstrap.ps1; C:\Temp\bootstrap.ps1 -Proxy "http://myproxy.local:port"; cmd
 ```
 
-Install Robot Framework and additional software
+#### Software installation
+After deploying salt-data, `bootstrap-robotframework.ps1` installs Robot Framework and the
+additional software from the `cloud` Salt environment:
+
 ```cmd
 cd /d C:\RF-Bootstrap\salt-app\
-
-salt-call --local --config-dir=C:\RF-Bootstrap\salt-data\conf saltutil.sync_all
-salt-call --local --config-dir=C:\RF-Bootstrap\salt-data\conf state.apply deploy-rf-client
+salt-call --local --config-dir=C:\RF-Bootstrap\salt-data\conf pkg.refresh_db saltenv=cloud
+salt-call --local --config-dir=C:\RF-Bootstrap\salt-data\conf saltutil.sync_all saltenv=cloud
+salt-call --local --config-dir=C:\RF-Bootstrap\salt-data\conf state.apply deploy-rf-client saltenv=cloud -l info
 ```
+
+- If `C:\RF-Bootstrap\salt-data\conf\minion.d\cloud.conf` still contains the example
+  configuration (empty `s3.keyid`/`s3.key` or bucket `myBucketName`), the script pauses and asks
+  you to edit it. Press Enter to re-check, or type `skip` to skip the installation. The script
+  then prints the commands above so you can run them later.
+- If a step fails, the remaining steps are skipped and the script exits with code 1. Details are
+  in `C:\RF-Bootstrap\salt-var\salt.log`.
+- Pass `-SkipInstall` to `bootstrap.ps1` or `bootstrap-robotframework.ps1` to only deploy
+  salt-data, without installing software.
+
+#### Machine-specific settings
+`salt-data\srv\pillar\rf-client.sls` is overwritten with the release defaults on every run. Put
+machine-specific changes (e.g. `client-role`, versions, VS Code extensions) into
+`C:\RF-Bootstrap\salt-data\srv\pillar\rf-client-local.sls` instead. The script creates it with
+commented examples on first run and never overwrites it. Its values override the defaults. Dicts
+are merged, lists (e.g. `vscode-extensions`) replace the default list completely.
 
 #### Bootstrap Robot Framework old fashion way
 ```powershell
