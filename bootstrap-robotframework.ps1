@@ -75,7 +75,11 @@ function Invoke-SelfUpdate {
         $argString += " -Proxy `"$Proxy`""
     }
 
-    Start-Process -FilePath "powershell.exe" -ArgumentList $argString -NoNewWindow
+    # Wait for the relaunched run so it keeps the console to itself (a caller like the README
+    # one-liner's trailing `cmd` would otherwise start and compete for input) and pass on its
+    # exit code.
+    $process = Start-Process -FilePath "powershell.exe" -ArgumentList $argString -NoNewWindow -Wait -PassThru
+    $script:relaunchExitCode = $process.ExitCode
     return $true
 }
 
@@ -286,8 +290,8 @@ if (-not $AlreadyRelaunched) {
     $latestTag = Get-LatestTag -repo $defRepo -Proxy $Proxy
     if ($latestTag -and $latestTag -ne $scriptVersion) {
         if (Invoke-SelfUpdate -repo $defRepo -tag $latestTag -Proxy $Proxy) {
-            Write-Output "Relaunched as $latestTag. Exiting this (outdated) run."
-            exit
+            Write-Output "Relaunched run ($latestTag) finished. Exiting this (outdated) run."
+            exit $relaunchExitCode
         }
     } else {
         Write-Output "Running the current version ($scriptVersion)."
