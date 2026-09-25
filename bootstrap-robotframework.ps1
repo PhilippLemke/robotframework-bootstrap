@@ -19,6 +19,7 @@ $cloudConfRestored = $false
 $rfClientLocalPath = "$defRFInstallerPath\salt-data\srv\pillar\rf-client-local.sls"
 $saltCallPath = "$defRFInstallerPath\salt-app\salt-call.exe"
 $saltConfDir = "$defRFInstallerPath\salt-data\conf"
+$noProxyConfPath = "$defRFInstallerPath\salt-data\conf\minion.d\zz-no-proxy.conf"
 
 # Print a section header to visually group the cmd output
 function Write-Section {
@@ -261,6 +262,29 @@ function Invoke-SaltCall {
     Write-Host "salt-call $($Arguments -join ' ')"
     & $saltCallPath --local "--config-dir=$saltConfDir" --retcode-passthrough @Arguments | Out-Host
     return ($LASTEXITCODE -eq 0)
+}
+
+# Salt reads the proxy from cloud.conf itself, regardless of -Proxy or the fallback above. If that
+# proxy is unreachable, let the user decide between installing without it for this run and
+# aborting. Returns $true to continue; sets $script:bypassSaltProxy when the proxy is skipped.
+function Confirm-SaltProxy {
+    $saltProxy = Get-ProxyFromCloudConf -path $cloudConfPath
+    if (-not $saltProxy -or (Test-Proxy -Proxy $saltProxy)) {
+        return $true
+    }
+
+    Write-Host "The proxy from cloud.conf ($saltProxy) is not reachable." -ForegroundColor Yellow
+    Write-Host "Salt would still try to use it for the software installation."
+    while ($true) {
+        $answer = Read-Host "[c] Continue without the proxy for this run   [a] Abort to fix cloud.conf"
+        if ($answer -eq 'c') {
+            $script:bypassSaltProxy = $true
+            return $true
+        }
+        if ($answer -eq 'a') {
+            return $false
+        }
+    }
 }
 
 # Print the manual commands, for when the installation is skipped or has to be re-run by hand
@@ -514,17 +538,51 @@ if (-not (Wait-CloudConfConfigured)) {
     exit
 }
 
+# A leftover from an interrupted run must not silently disable the proxy
+if (Test-Path -Path $noProxyConfPath) {
+    Remove-Item -Path $noProxyConfPath -Force
+}
+
+$bypassSaltProxy = $false
+if (-not (Confirm-SaltProxy)) {
+    Write-Output "Software installation aborted. Fix the proxy in $cloudConfPath and run it later with:"
+    Write-InstallCommands
+    exit 1
+}
+
+# minion.d files are loaded alphabetically, so this empty proxy_host overrides cloud.conf for the
+# salt-call steps below without touching cloud.conf itself. It is removed again afterwards.
+if ($bypassSaltProxy) {
+    Write-Output "Installing without the proxy for this run (cloud.conf is left unchanged)."
+    Set-Content -Path $noProxyConfPath -Value @(
+        "# Temporary override written by bootstrap-robotframework.ps1, removed after the installation"
+        'proxy_host: ""'
+    ) -Encoding ASCII
+}
+
 $saltSteps = @(
     @("pkg.refresh_db", "saltenv=cloud"),
     @("saltutil.sync_all", "saltenv=cloud"),
     @("state.apply", "deploy-rf-client", "saltenv=cloud", "-l", "info")
 )
-foreach ($step in $saltSteps) {
-    if (-not (Invoke-SaltCall -Arguments $step)) {
-        Write-Host "FAILED" -ForegroundColor Red
-        Write-Output "salt-call $($step -join ' ') failed. See $defRFInstallerPath\salt-var\salt.log for details."
-        exit 1
+$failedStep = $null
+try {
+    foreach ($step in $saltSteps) {
+        if (-not (Invoke-SaltCall -Arguments $step)) {
+            $failedStep = $step
+            break
+        }
     }
+} finally {
+    if (Test-Path -Path $noProxyConfPath) {
+        Remove-Item -Path $noProxyConfPath -Force
+    }
+}
+
+if ($failedStep) {
+    Write-Host "FAILED" -ForegroundColor Red
+    Write-Output "salt-call $($failedStep -join ' ') failed. See $defRFInstallerPath\salt-var\salt.log for details."
+    exit 1
 }
 
 Write-Output ""

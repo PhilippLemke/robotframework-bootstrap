@@ -45,6 +45,10 @@ salt-call --local --config-dir=C:\RF-Bootstrap\salt-data\conf state.apply deploy
   configuration (empty `s3.keyid`/`s3.key` or bucket `myBucketName`), the script pauses and asks
   you to edit it. Press Enter to re-check, or type `skip` to skip the installation. The script
   then prints the commands above so you can run them later.
+- If cloud.conf configures a proxy (`proxy_host`/`proxy_port`) that is not reachable, the script
+  asks whether to install without the proxy for this run or to abort. Continuing writes a
+  temporary `minion.d\zz-no-proxy.conf` that overrides the proxy for Salt only while the
+  installation runs; cloud.conf itself is not changed.
 - If a step fails, the remaining steps are skipped and the script exits with code 1. Details are
   in `C:\RF-Bootstrap\salt-var\salt.log`.
 - Pass `-SkipInstall` to `bootstrap.ps1` or `bootstrap-robotframework.ps1` to only deploy
