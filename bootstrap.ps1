@@ -2,10 +2,11 @@ param (
     [string]$Proxy,
     [switch]$SkipInstall,
     # Deploy exactly this release (e.g. v1.0.5) instead of the latest one
-    [string]$Version
+    [string]$Version,
+    # Salt version to install on machines without Salt (e.g. 3006.19, or "latest")
+    [string]$SaltVersion = "3006.19"
 )
 
-$saltVersion = "3006.19"
 $repo = "PhilippLemke/robotframework-bootstrap"
 $saltFolderPath = "C:\Program Files\Salt Project\Salt"
 $tempFolderPath = "C:\Temp"
@@ -173,14 +174,29 @@ try {
 
 # Run the Salt bootstrap script if the Salt folder does not exist
 if (-not (Test-Path -Path $saltFolderPath)) {
-    Write-Host "Salt installation not detected. Running bootstrap-salt.ps1..."
+    Write-Host "Salt installation not detected. Running bootstrap-salt.ps1 (Salt $SaltVersion)..."
+    # bootstrap-salt.ps1 reports errors via its exit code; don't let a stale one from earlier count
+    $global:LASTEXITCODE = 0
     if ($Proxy) {
-        & $bootstrapSaltPath -RunService false -Version $saltVersion -p $Proxy -IgnoreSSL
+        & $bootstrapSaltPath -RunService false -Version $SaltVersion -p $Proxy -IgnoreSSL
     } else {
-        & $bootstrapSaltPath -RunService false -Version $saltVersion
+        & $bootstrapSaltPath -RunService false -Version $SaltVersion
+    }
+
+    # Everything after this relies on Salt, so stop here if it didn't get installed (e.g. an
+    # unknown -SaltVersion) instead of deploying a setup that can't run.
+    if ($global:LASTEXITCODE -ne 0 -or -not (Test-Path -Path (Join-Path $saltFolderPath "salt-call.exe"))) {
+        Write-Host "FAILED" -ForegroundColor Red
+        Write-Host "Salt $SaltVersion could not be installed (see the output of bootstrap-salt.ps1 above)."
+        Write-Host "Aborting: nothing has been deployed."
+        exit 1
     }
 } else {
     Write-Host "Salt installation detected at $saltFolderPath. Skipping Salt installation steps."
+    # An existing installation is never upgraded, so an explicit -SaltVersion has no effect here
+    if ($PSBoundParameters.ContainsKey('SaltVersion')) {
+        Write-Host "-SaltVersion $SaltVersion is ignored, because Salt is already installed." -ForegroundColor Yellow
+    }
 }
 
 # Only pass the options that are actually set, so the call also works with a latest release that
