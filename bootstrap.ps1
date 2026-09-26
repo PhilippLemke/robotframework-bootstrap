@@ -4,7 +4,14 @@ param (
     # Deploy exactly this release (e.g. v1.0.5) instead of the latest one
     [string]$Version,
     # Salt version to install on machines without Salt (e.g. 3006.19, or "latest")
-    [string]$SaltVersion = "3006.19"
+    [string]$SaltVersion = "3006.19",
+    # S3 settings for cloud.conf, passed on to bootstrap-robotframework.ps1. If any of them is
+    # given, the missing ones and the credentials are asked for interactively.
+    [string]$S3Bucket,
+    [string]$S3ServiceUrl,
+    [string]$S3Location,
+    [ValidateSet('True', 'False')]
+    [string]$S3PathStyle
 )
 
 $repo = "PhilippLemke/robotframework-bootstrap"
@@ -210,6 +217,11 @@ if ($SkipInstall) {
 }
 if ($Version) {
     $bootstrapArgs.Version = $Version
+}
+foreach ($name in 'S3Bucket', 'S3ServiceUrl', 'S3Location', 'S3PathStyle') {
+    if ($PSBoundParameters[$name]) {
+        $bootstrapArgs[$name] = $PSBoundParameters[$name]
+    }
 }
 
 Write-Host "Running bootstrap-robotframework.ps1 ($ref)..."
