@@ -10,6 +10,89 @@ $repo = "PhilippLemke/robotframework-bootstrap"
 $saltFolderPath = "C:\Program Files\Salt Project\Salt"
 $tempFolderPath = "C:\Temp"
 
+# Without -Proxy, fall back to a $Proxy variable set in the calling session (hidden in here by the
+# parameter of the same name, so read from the caller's scope) or an environment variable Proxy,
+# and treat it exactly as if it had been passed as -Proxy.
+if (-not $Proxy) {
+    # Started via -File there is no caller scope at all, which Get-Variable reports as an error
+    try {
+        $callerProxy = Get-Variable -Name Proxy -Scope 1 -ValueOnly -ErrorAction Stop
+    } catch {
+        $callerProxy = $null
+    }
+    if ($callerProxy) {
+        $Proxy = $callerProxy
+        Write-Host "Proxy set via env variable `$Proxy: $Proxy"
+    } elseif ($env:Proxy) {
+        $Proxy = $env:Proxy
+        Write-Host "Proxy set via env variable `$env:Proxy: $Proxy"
+    }
+}
+
+# A proxy must be an absolute http(s) URI with a host. Checking the scheme matters, because e.g.
+# "myproxy:3128" parses as a valid URI with the scheme "myproxy".
+function Test-ProxyFormat {
+    param (
+        [string]$Proxy
+    )
+
+    $uri = $null
+    return [System.Uri]::TryCreate($Proxy, [System.UriKind]::Absolute, [ref]$uri) -and
+        $uri.Scheme -in @('http', 'https') -and
+        [bool]$uri.Host
+}
+
+# Quick TCP connectivity check against a host:port, with a short timeout
+function Test-TcpConnection {
+    param (
+        [string]$ComputerName,
+        [int]$Port,
+        [int]$TimeoutMs = 3000
+    )
+
+    $tcpClient = New-Object System.Net.Sockets.TcpClient
+    try {
+        $asyncResult = $tcpClient.BeginConnect($ComputerName, $Port, $null, $null)
+        return $asyncResult.AsyncWaitHandle.WaitOne($TimeoutMs) -and $tcpClient.Connected
+    } catch {
+        return $false
+    } finally {
+        $tcpClient.Close()
+    }
+}
+
+# Catch a malformed proxy (e.g. a leftover placeholder like http://myproxy:port) or one that isn't
+# reachable here with one clear message, instead of every download below failing on it.
+while ($Proxy) {
+    if (-not (Test-ProxyFormat -Proxy $Proxy)) {
+        Write-Host "Proxy entry seems to be invalid: $Proxy" -ForegroundColor Red
+        Write-Host "Expected format: http://host:port"
+    } elseif (-not (Test-TcpConnection -ComputerName ([System.Uri]$Proxy).Host -Port ([System.Uri]$Proxy).Port)) {
+        Write-Host "Proxy is not reachable within 3 seconds: $Proxy" -ForegroundColor Red
+        if (Test-TcpConnection -ComputerName "github.com" -Port 443) {
+            Write-Host "A direct connection to github.com works."
+        } else {
+            Write-Host "A direct connection to github.com doesn't work either."
+        }
+    } else {
+        break
+    }
+
+    switch (Read-Host "[r] Re-specify the proxy   [c] Continue without proxy   [a] Abort") {
+        'r' {
+            do {
+                $Proxy = Read-Host "Proxy"
+            } while (-not $Proxy)
+        }
+        'c' {
+            $Proxy = $null
+        }
+        'a' {
+            exit 1
+        }
+    }
+}
+
 # Set the security protocol to TLS 1.2
 Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
@@ -24,9 +107,9 @@ function Invoke-Download {
     )
 
     if ($Proxy) {
-        Invoke-WebRequest -Uri $Uri -OutFile $OutFile -Proxy $Proxy -ProxyUseDefaultCredentials
+        Invoke-WebRequest -Uri $Uri -OutFile $OutFile -Proxy $Proxy -ProxyUseDefaultCredentials -ErrorAction Stop
     } else {
-        Invoke-WebRequest -Uri $Uri -OutFile $OutFile
+        Invoke-WebRequest -Uri $Uri -OutFile $OutFile -ErrorAction Stop
     }
 }
 
@@ -76,9 +159,17 @@ if ($latestTag) {
 $bootstrapRobotFrameworkPath = Join-Path $tempFolderPath "bootstrap-robotframework.ps1"
 $bootstrapSaltPath = Join-Path $tempFolderPath "bootstrap-salt.ps1"
 
-# Download the bootstrap scripts from the resolved release, not a possibly-stale local copy
-Invoke-Download -Uri "https://raw.githubusercontent.com/$repo/$ref/bootstrap-robotframework.ps1" -OutFile $bootstrapRobotFrameworkPath
-Invoke-Download -Uri "https://raw.githubusercontent.com/$repo/$ref/bootstrap-salt.ps1" -OutFile $bootstrapSaltPath
+# Download the bootstrap scripts from the resolved release, not a possibly-stale local copy. If
+# that fails, stop: running a leftover copy from an earlier run would deploy an unknown version.
+try {
+    Invoke-Download -Uri "https://raw.githubusercontent.com/$repo/$ref/bootstrap-robotframework.ps1" -OutFile $bootstrapRobotFrameworkPath
+    Invoke-Download -Uri "https://raw.githubusercontent.com/$repo/$ref/bootstrap-salt.ps1" -OutFile $bootstrapSaltPath
+} catch {
+    Write-Host "FAILED" -ForegroundColor Red
+    Write-Host "Could not download the bootstrap scripts ($($_.Exception.Message))."
+    Write-Host "Aborting: please fix connectivity issues and start deployment again."
+    exit 1
+}
 
 # Run the Salt bootstrap script if the Salt folder does not exist
 if (-not (Test-Path -Path $saltFolderPath)) {
