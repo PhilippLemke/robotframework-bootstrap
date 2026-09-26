@@ -10,6 +10,25 @@ $repo = "PhilippLemke/robotframework-bootstrap"
 $saltFolderPath = "C:\Program Files\Salt Project\Salt"
 $tempFolderPath = "C:\Temp"
 
+# Without -Proxy, fall back to a $Proxy variable set in the calling session (hidden in here by the
+# parameter of the same name, so read from the caller's scope) or an environment variable Proxy,
+# and treat it exactly as if it had been passed as -Proxy.
+if (-not $Proxy) {
+    # Started via -File there is no caller scope at all, which Get-Variable reports as an error
+    try {
+        $callerProxy = Get-Variable -Name Proxy -Scope 1 -ValueOnly -ErrorAction Stop
+    } catch {
+        $callerProxy = $null
+    }
+    if ($callerProxy) {
+        $Proxy = $callerProxy
+        Write-Host "Proxy set via env variable `$Proxy: $Proxy"
+    } elseif ($env:Proxy) {
+        $Proxy = $env:Proxy
+        Write-Host "Proxy set via env variable `$env:Proxy: $Proxy"
+    }
+}
+
 # Set the security protocol to TLS 1.2
 Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12

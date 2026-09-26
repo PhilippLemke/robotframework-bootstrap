@@ -23,6 +23,10 @@ With a proxy:
 Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap.ps1 -OutFile C:\Temp\bootstrap.ps1; C:\Temp\bootstrap.ps1 -Proxy "http://myproxy.local:port"; cmd
 ```
 
+Instead of `-Proxy`, `bootstrap.ps1` also picks up a `$Proxy` variable set in the PowerShell
+session (or an environment variable `Proxy`), e.g. `$Proxy = "http://myproxy.local:port"` before
+running the one-liner. An explicit `-Proxy` takes precedence.
+
 A specific release (skips the newer-version check and deploys exactly that tag):
 ```powershell
 Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap.ps1 -OutFile C:\Temp\bootstrap.ps1; C:\Temp\bootstrap.ps1 -Version v1.0.5; cmd
