@@ -27,6 +27,9 @@ Instead of `-Proxy`, `bootstrap.ps1` also picks up a `$Proxy` variable set in th
 session (or an environment variable `Proxy`), e.g. `$Proxy = "http://myproxy.local:port"` before
 running the one-liner. An explicit `-Proxy` takes precedence.
 
+`bootstrap.ps1` installs Salt `3006.19` on machines without Salt. Pass `-SaltVersion <version>`
+(e.g. `3007.8` or `latest`) for a different one. An existing Salt installation is never upgraded.
+
 A specific release (skips the newer-version check and deploys exactly that tag):
 ```powershell
 Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap.ps1 -OutFile C:\Temp\bootstrap.ps1; C:\Temp\bootstrap.ps1 -Version v1.0.5; cmd
