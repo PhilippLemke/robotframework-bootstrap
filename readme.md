@@ -23,6 +23,12 @@ With a proxy:
 Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap.ps1 -OutFile C:\Temp\bootstrap.ps1; C:\Temp\bootstrap.ps1 -Proxy "http://myproxy.local:port"; cmd
 ```
 
+With S3 settings for a new cloud.conf (asks for `s3.keyid` and `s3.key`; see
+[S3 settings via parameters](#s3-settings-via-parameters)):
+```powershell
+Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap.ps1 -OutFile C:\Temp\bootstrap.ps1; C:\Temp\bootstrap.ps1 -S3Bucket "myBucketName" -S3ServiceUrl "s3.eu-central-1.amazonaws.com" -S3Location "eu-central-1" -S3PathStyle True; cmd
+```
+
 Instead of `-Proxy`, `bootstrap.ps1` also picks up a `$Proxy` variable set in the PowerShell
 session (or an environment variable `Proxy`), e.g. `$Proxy = "http://myproxy.local:port"` before
 running the one-liner. An explicit `-Proxy` takes precedence.
