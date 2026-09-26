@@ -255,67 +255,6 @@ function Test-CloudConfConfigured {
     return [bool]($values['s3.keyid'] -and $values['s3.key'] -and $values['s3.bucket'] -and $values['s3.bucket'] -ne 'myBucketName')
 }
 
-# Read a single "key: value" entry from cloud.conf (surrounding quotes removed), or $default if
-# it is missing or empty
-function Get-CloudConfValue {
-    param (
-        [string]$key,
-        [string]$default = $null
-    )
-
-    if (Test-Path -Path $cloudConfPath) {
-        foreach ($line in Get-Content -Path $cloudConfPath) {
-            if ($line -match "^\s*$([regex]::Escape($key))\s*:\s*(.*?)\s*$") {
-                $value = $Matches[1]
-                if ($value -match "^'(.*)'$") {
-                    $value = $Matches[1] -replace "''", "'"
-                } else {
-                    $value = $value.Trim('"')
-                }
-                if ($value) {
-                    return $value
-                }
-                return $default
-            }
-        }
-    }
-    return $default
-}
-
-# Write the given settings into cloud.conf: existing entries are replaced in place, new ones are
-# appended, and all other lines (e.g. the proxy settings) are kept.
-function Set-CloudConfValues {
-    param (
-        [System.Collections.Specialized.OrderedDictionary]$settings
-    )
-
-    $lines = New-Object System.Collections.Generic.List[string]
-    if (Test-Path -Path $cloudConfPath) {
-        foreach ($line in Get-Content -Path $cloudConfPath) {
-            $lines.Add($line)
-        }
-    }
-
-    foreach ($key in $settings.Keys) {
-        $entry = "${key}: $($settings[$key])"
-        $index = -1
-        for ($i = 0; $i -lt $lines.Count; $i++) {
-            if ($lines[$i] -match "^\s*$([regex]::Escape($key))\s*:") {
-                $index = $i
-                break
-            }
-        }
-        if ($index -ge 0) {
-            $lines[$index] = $entry
-        } else {
-            $lines.Add($entry)
-        }
-    }
-
-    # UTF-8 without BOM, a BOM would end up in front of the first key when Salt reads the file
-    [System.IO.File]::WriteAllLines($cloudConfPath, $lines, (New-Object System.Text.UTF8Encoding $false))
-}
-
 # Quote a value for YAML, so credentials with special characters are read back unchanged
 function ConvertTo-YamlString {
     param (
@@ -347,71 +286,71 @@ function Read-S3Setting {
     }
 }
 
-# Ask for an S3 credential without echoing it. Enter keeps the value already in cloud.conf.
+# Ask for an S3 credential without echoing it; an answer is required
 function Read-S3Secret {
     param (
-        [string]$name,
-        [string]$current
+        [string]$name
     )
 
     while ($true) {
-        if ($current) {
-            $secure = Read-Host "$name (Enter keeps the current one)" -AsSecureString
-        } else {
-            $secure = Read-Host $name -AsSecureString
-        }
-        $answer = [System.Net.NetworkCredential]::new('', $secure).Password
+        $answer = [System.Net.NetworkCredential]::new('', (Read-Host $name -AsSecureString)).Password
         if ($answer) {
             return $answer
-        }
-        if ($current) {
-            return $current
         }
     }
 }
 
-# Configure the S3 settings in cloud.conf from the S3 parameters. Missing settings are asked for,
-# defaulting to the value already in cloud.conf and otherwise to the built-in default. The
-# credentials are always asked for.
-function Set-S3CloudConf {
-    $currentBucket = Get-CloudConfValue -key 's3.bucket'
-    if ($currentBucket -eq 'myBucketName') {
-        $currentBucket = $null
+# Write a new cloud.conf from the S3 parameters. Missing settings are asked for (with the built-in
+# defaults), the credentials are always asked for.
+function New-S3CloudConf {
+    $settings = [ordered]@{
+        's3.bucket'      = @($S3Bucket, $null)
+        's3.service_url' = @($S3ServiceUrl, 's3.eu-central-1.amazonaws.com')
+        's3.location'    = @($S3Location, 'eu-central-1')
+        's3.path_style'  = @($S3PathStyle, 'True')
     }
 
-    $defaults = [ordered]@{
-        's3.bucket'      = $currentBucket
-        's3.service_url' = Get-CloudConfValue -key 's3.service_url' -default 's3.eu-central-1.amazonaws.com'
-        's3.location'    = Get-CloudConfValue -key 's3.location' -default 'eu-central-1'
-        's3.path_style'  = Get-CloudConfValue -key 's3.path_style' -default 'True'
-    }
-    $given = @{
-        's3.bucket'      = $S3Bucket
-        's3.service_url' = $S3ServiceUrl
-        's3.location'    = $S3Location
-        's3.path_style'  = $S3PathStyle
-    }
-
-    $settings = [ordered]@{}
-    foreach ($key in $defaults.Keys) {
-        if ($given[$key]) {
-            $value = $given[$key]
+    $lines = @()
+    foreach ($key in $settings.Keys) {
+        $given, $default = $settings[$key]
+        if ($given) {
+            $value = $given
             Write-Output "${key}: $value"
         } else {
-            $value = Read-S3Setting -name $key -default $defaults[$key]
+            $value = Read-S3Setting -name $key -default $default
         }
         # path_style is a YAML boolean, everything else is written as a quoted string
         if ($key -eq 's3.path_style') {
-            $settings[$key] = $value
+            $lines += "${key}: $value"
         } else {
-            $settings[$key] = ConvertTo-YamlString -value $value
+            $lines += "${key}: $(ConvertTo-YamlString -value $value)"
         }
     }
-    $settings['s3.keyid'] = ConvertTo-YamlString -value (Read-S3Secret -name 's3.keyid' -current (Get-CloudConfValue -key 's3.keyid'))
-    $settings['s3.key'] = ConvertTo-YamlString -value (Read-S3Secret -name 's3.key' -current (Get-CloudConfValue -key 's3.key'))
+    $lines += "s3.keyid: $(ConvertTo-YamlString -value (Read-S3Secret -name 's3.keyid'))"
+    $lines += "s3.key: $(ConvertTo-YamlString -value (Read-S3Secret -name 's3.key'))"
 
-    Set-CloudConfValues -settings $settings
-    Write-Output "S3 settings written to $cloudConfPath."
+    # UTF-8 without BOM, a BOM would end up in front of the first key when Salt reads the file
+    [System.IO.File]::WriteAllLines($cloudConfPath, [string[]]$lines, (New-Object System.Text.UTF8Encoding $false))
+    Write-Output "New cloud.conf written to $cloudConfPath."
+}
+
+# With an existing cloud.conf from before this run, let the user choose between keeping it and
+# replacing it with a new one built from the S3 parameters. Returns $true to write a new one.
+function Confirm-NewS3CloudConf {
+    if (-not $cloudConfRestored) {
+        return $true
+    }
+
+    Write-Host "S3 parameters were given, but an existing cloud.conf was found."
+    while ($true) {
+        $answer = Read-Host "[e] Use the existing cloud.conf   [n] Create a new one (replaces the whole file, incl. proxy settings)"
+        if ($answer -eq 'e') {
+            return $false
+        }
+        if ($answer -eq 'n') {
+            return $true
+        }
+    }
 }
 
 # Keep asking until cloud.conf is configured, or the user skips the software installation.
@@ -705,7 +644,11 @@ if ($cloudConfRestored) {
 # Apply S3 settings passed as parameters, after the previous cloud.conf has been restored
 if ($S3Bucket -or $S3ServiceUrl -or $S3Location -or $S3PathStyle) {
     Write-Section "S3 Configuration"
-    Set-S3CloudConf
+    if (Confirm-NewS3CloudConf) {
+        New-S3CloudConf
+    } else {
+        Write-Output "Using the existing cloud.conf, the S3 parameters are ignored."
+    }
 }
 
 # Seed the machine-specific pillar overrides after salt-data is in place
