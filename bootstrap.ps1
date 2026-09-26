@@ -29,6 +29,39 @@ if (-not $Proxy) {
     }
 }
 
+# A proxy must be an absolute http(s) URI with a host. Checking the scheme matters, because e.g.
+# "myproxy:3128" parses as a valid URI with the scheme "myproxy".
+function Test-ProxyFormat {
+    param (
+        [string]$Proxy
+    )
+
+    $uri = $null
+    return [System.Uri]::TryCreate($Proxy, [System.UriKind]::Absolute, [ref]$uri) -and
+        $uri.Scheme -in @('http', 'https') -and
+        [bool]$uri.Host
+}
+
+# Catch a malformed proxy (e.g. a leftover placeholder like http://myproxy:port) here with one clear
+# message, instead of every download below failing on it.
+while ($Proxy -and -not (Test-ProxyFormat -Proxy $Proxy)) {
+    Write-Host "Proxy entry seems to be invalid: $Proxy" -ForegroundColor Red
+    Write-Host "Expected format: http://host:port"
+    switch (Read-Host "[r] Re-specify the proxy   [c] Continue without proxy   [a] Abort") {
+        'r' {
+            do {
+                $Proxy = Read-Host "Proxy"
+            } while (-not $Proxy)
+        }
+        'c' {
+            $Proxy = $null
+        }
+        'a' {
+            exit 1
+        }
+    }
+}
+
 # Set the security protocol to TLS 1.2
 Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
