@@ -61,6 +61,24 @@ salt-call --local --config-dir=C:\RF-Bootstrap\salt-data\conf state.apply deploy
 - Pass `-SkipInstall` to `bootstrap.ps1` or `bootstrap-robotframework.ps1` to only deploy
   salt-data, without installing software.
 
+#### S3 settings via parameters
+`bootstrap.ps1` and `bootstrap-robotframework.ps1` can write the S3 settings of `cloud.conf`:
+
+| Parameter       | cloud.conf key   | Default                         |
+|-----------------|------------------|---------------------------------|
+| `-S3Bucket`     | `s3.bucket`      | none                            |
+| `-S3ServiceUrl` | `s3.service_url` | `s3.eu-central-1.amazonaws.com` |
+| `-S3Location`   | `s3.location`    | `eu-central-1`                  |
+| `-S3PathStyle`  | `s3.path_style`  | `True`                          |
+
+If at least one of them is given, the script asks for the missing ones (Enter accepts the value
+in brackets: the one already in cloud.conf, otherwise the default) and always for `s3.keyid` and
+`s3.key`, which are never passed as parameters. Other cloud.conf entries (e.g. the proxy) are kept.
+
+```powershell
+C:\Temp\bootstrap.ps1 -S3Bucket my-bucket
+```
+
 #### Machine-specific settings
 `salt-data\srv\pillar\rf-client.sls` is overwritten with the release defaults on every run. Put
 machine-specific changes (e.g. `client-role`, versions, VS Code extensions) into
