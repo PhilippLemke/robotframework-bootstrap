@@ -71,9 +71,11 @@ salt-call --local --config-dir=C:\RF-Bootstrap\salt-data\conf state.apply deploy
 | `-S3Location`   | `s3.location`    | `eu-central-1`                  |
 | `-S3PathStyle`  | `s3.path_style`  | `True`                          |
 
-If at least one of them is given, the script asks for the missing ones (Enter accepts the value
-in brackets: the one already in cloud.conf, otherwise the default) and always for `s3.keyid` and
-`s3.key`, which are never passed as parameters. Other cloud.conf entries (e.g. the proxy) are kept.
+If at least one of them is given, the script writes a new cloud.conf. It asks for the missing
+settings (Enter accepts the default in brackets) and always for `s3.keyid` and `s3.key`, which are
+never passed as parameters. If a cloud.conf existed before the run, you choose between keeping it
+(the parameters are ignored) and replacing it with a new one. A new file contains only the S3
+settings, so proxy settings from the old one are not carried over.
 
 ```powershell
 C:\Temp\bootstrap.ps1 -S3Bucket my-bucket
