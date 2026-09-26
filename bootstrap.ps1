@@ -175,10 +175,21 @@ try {
 # Run the Salt bootstrap script if the Salt folder does not exist
 if (-not (Test-Path -Path $saltFolderPath)) {
     Write-Host "Salt installation not detected. Running bootstrap-salt.ps1 (Salt $SaltVersion)..."
+    # bootstrap-salt.ps1 reports errors via its exit code; don't let a stale one from earlier count
+    $global:LASTEXITCODE = 0
     if ($Proxy) {
         & $bootstrapSaltPath -RunService false -Version $SaltVersion -p $Proxy -IgnoreSSL
     } else {
         & $bootstrapSaltPath -RunService false -Version $SaltVersion
+    }
+
+    # Everything after this relies on Salt, so stop here if it didn't get installed (e.g. an
+    # unknown -SaltVersion) instead of deploying a setup that can't run.
+    if ($global:LASTEXITCODE -ne 0 -or -not (Test-Path -Path (Join-Path $saltFolderPath "salt-call.exe"))) {
+        Write-Host "FAILED" -ForegroundColor Red
+        Write-Host "Salt $SaltVersion could not be installed (see the output of bootstrap-salt.ps1 above)."
+        Write-Host "Aborting: nothing has been deployed."
+        exit 1
     }
 } else {
     Write-Host "Salt installation detected at $saltFolderPath. Skipping Salt installation steps."
