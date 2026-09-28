@@ -24,6 +24,7 @@ $cloudConfPath = "$defRFInstallerPath\salt-data\conf\minion.d\cloud.conf"
 $cloudConfBackupPath = "$defRFInstallerPath\backup\cloud.conf"
 $cloudConfRestored = $false
 $rfClientLocalPath = "$defRFInstallerPath\salt-data\srv\pillar\rf-client-local.sls"
+$clientRolePath = "$defRFInstallerPath\salt-data\srv\pillar\client-role.sls"
 $saltCallPath = "$defRFInstallerPath\salt-app\salt-call.exe"
 $saltConfDir = "$defRFInstallerPath\salt-data\conf"
 $noProxyConfPath = "$defRFInstallerPath\salt-data\conf\minion.d\zz-no-proxy.conf"
@@ -236,6 +237,20 @@ function New-RfClientLocal {
         "#  - d-biehl.robotcode@2.7.0"
     )
     Set-Content -Path $rfClientLocalPath -Value $template -Encoding ASCII
+}
+
+# Create the client role pillar file if it doesn't exist yet, with comments only, so the pillar
+# top file never points to a missing file. The role itself is written once it is chosen.
+function New-ClientRoleFile {
+    if (Test-Path -Path $clientRolePath) {
+        return
+    }
+
+    Set-Content -Path $clientRolePath -Encoding ASCII -Value @(
+        "# Client role of this machine (coding or execution), written by bootstrap-robotframework.ps1."
+        "# This file is not part of the repository and is never overwritten by the bootstrap."
+        "# No role chosen yet."
+    )
 }
 
 # cloud.conf counts as configured once the S3 credentials are filled in and the bucket is no
@@ -653,6 +668,7 @@ if ($S3Bucket -or $S3ServiceUrl -or $S3Location -or $S3PathStyle) {
 
 # Seed the machine-specific pillar overrides after salt-data is in place
 New-RfClientLocal
+New-ClientRoleFile
 
 if ($SkipInstall) {
     Write-Output ""
