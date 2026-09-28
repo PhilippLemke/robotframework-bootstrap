@@ -73,6 +73,23 @@ salt-call --local --config-dir=C:\RF-Bootstrap\salt-data\conf state.apply deploy
 - Pass `-SkipInstall` to `bootstrap.ps1` or `bootstrap-robotframework.ps1` to only deploy
   salt-data, without installing software.
 
+#### Pip packages
+After the Salt steps, the script syncs the pip packages from `s3://<s3.bucket>/pip` to
+`C:\RF-Bootstrap\pkgs\pip` with the AWS CLI (credentials from `~/.aws`, written by Salt; proxy
+from cloud.conf) and installs them offline:
+
+```cmd
+"C:\Program Files\Python310\python.exe" -m pip install --no-index --find-links="C:\RF-Bootstrap\pkgs\pip" -r "C:\RF-Bootstrap\pkgs\pip\requirements.txt"
+```
+
+- The Python path comes from `python_home` in the pillar (an override in `rf-client-local.sls` is
+  respected).
+- Without the AWS CLI, or without a `requirements.txt` in the bucket, the step is skipped with a
+  note.
+- If the sync or the install fails, the script exits with code 1 and prints the manual fallback
+  via Salt (`state.apply download-pip-pkgs-cloud saltenv=cloud`).
+- Pass `-SkipPip` to leave this step out.
+
 #### S3 settings via parameters
 `bootstrap.ps1` and `bootstrap-robotframework.ps1` can write the S3 settings of `cloud.conf`:
 
