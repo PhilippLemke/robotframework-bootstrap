@@ -10,11 +10,14 @@ param (
     [string]$S3ServiceUrl,
     [string]$S3Location,
     [ValidateSet('True', 'False')]
-    [string]$S3PathStyle
+    [string]$S3PathStyle,
+    # Client role of this machine; saved, so later runs don't ask again
+    [ValidateSet('coding', 'execution')]
+    [string]$ClientRole
 )
 
 # Current released version of this script. Bump this by hand every time a new git tag is cut.
-$scriptVersion = "v1.3.0"
+$scriptVersion = "v1.4.0"
 
 # Define the local path to save the installer
 $defRFInstallerPath = "C:\RF-Bootstrap"
@@ -24,6 +27,7 @@ $cloudConfPath = "$defRFInstallerPath\salt-data\conf\minion.d\cloud.conf"
 $cloudConfBackupPath = "$defRFInstallerPath\backup\cloud.conf"
 $cloudConfRestored = $false
 $rfClientLocalPath = "$defRFInstallerPath\salt-data\srv\pillar\rf-client-local.sls"
+$clientRolePath = "$defRFInstallerPath\salt-data\srv\pillar\client-role.sls"
 $saltCallPath = "$defRFInstallerPath\salt-app\salt-call.exe"
 $saltConfDir = "$defRFInstallerPath\salt-data\conf"
 $noProxyConfPath = "$defRFInstallerPath\salt-data\conf\minion.d\zz-no-proxy.conf"
@@ -143,6 +147,15 @@ function Invoke-SelfUpdate {
         }
     }
 
+    # -ClientRole exists from v1.4.0 on
+    if ($ClientRole) {
+        if (Test-NewerVersion -tag "v1.4.0" -current $tag) {
+            Write-Host "$tag doesn't support -ClientRole, it is ignored." -ForegroundColor Yellow
+        } else {
+            $argString += " -ClientRole $ClientRole"
+        }
+    }
+
     # Wait for the relaunched run so it keeps the console to itself (a caller like the README
     # one-liner's trailing `cmd` would otherwise start and compete for input) and pass on its
     # exit code.
@@ -236,6 +249,82 @@ function New-RfClientLocal {
         "#  - d-biehl.robotcode@2.7.0"
     )
     Set-Content -Path $rfClientLocalPath -Value $template -Encoding ASCII
+}
+
+# Create the client role pillar file if it doesn't exist yet, with comments only, so the pillar
+# top file never points to a missing file. The role itself is written once it is chosen.
+function New-ClientRoleFile {
+    if (Test-Path -Path $clientRolePath) {
+        return
+    }
+
+    Set-Content -Path $clientRolePath -Encoding ASCII -Value @(
+        "# Client role of this machine (coding or execution), written by bootstrap-robotframework.ps1."
+        "# This file is not part of the repository and is never overwritten by the bootstrap."
+        "# No role chosen yet."
+    )
+}
+
+# Read the active (not commented out) client-role from a pillar file, or $null
+function Get-PillarClientRole {
+    param (
+        [string]$path
+    )
+
+    if (Test-Path -Path $path) {
+        foreach ($line in Get-Content -Path $path) {
+            if ($line -match '^\s*client-role\s*:\s*(\S+)') {
+                return $Matches[1].Trim("'`"")
+            }
+        }
+    }
+    return $null
+}
+
+# Save the client role, keeping the file's comment header
+function Set-ClientRole {
+    param (
+        [string]$role
+    )
+
+    Set-Content -Path $clientRolePath -Encoding ASCII -Value @(
+        "# Client role of this machine (coding or execution), written by bootstrap-robotframework.ps1."
+        "# This file is not part of the repository and is never overwritten by the bootstrap."
+        "client-role: $role"
+    )
+}
+
+# Ask for the client role. Enter picks coding.
+function Read-ClientRole {
+    Write-Host "Client role for this machine:"
+    Write-Host "  [c] coding     Robot Framework + VS Code, Greenshot, extensions (default)"
+    Write-Host "  [e] execution  Robot Framework runtime only"
+    while ($true) {
+        switch (Read-Host "Client role [c]") {
+            { $_ -in '', 'c', 'coding' } { return 'coding' }
+            { $_ -in 'e', 'execution' } { return 'execution' }
+        }
+    }
+}
+
+# Decide the client role for the installation: an active line in rf-client-local.sls wins (as it
+# does in Salt), then the saved role, otherwise ask once and save the answer.
+function Resolve-ClientRole {
+    $localRole = Get-PillarClientRole -path $rfClientLocalPath
+    if ($localRole) {
+        Write-Output "client-role: $localRole (from rf-client-local.sls)"
+        return
+    }
+
+    $savedRole = Get-PillarClientRole -path $clientRolePath
+    if ($savedRole) {
+        Write-Output "client-role: $savedRole (from client-role.sls)"
+        return
+    }
+
+    $role = Read-ClientRole
+    Set-ClientRole -role $role
+    Write-Output "client-role: $role (saved in $clientRolePath)"
 }
 
 # cloud.conf counts as configured once the S3 credentials are filled in and the bucket is no
@@ -653,6 +742,17 @@ if ($S3Bucket -or $S3ServiceUrl -or $S3Location -or $S3PathStyle) {
 
 # Seed the machine-specific pillar overrides after salt-data is in place
 New-RfClientLocal
+New-ClientRoleFile
+
+# An explicit -ClientRole is saved right away, also with -SkipInstall
+if ($ClientRole) {
+    Set-ClientRole -role $ClientRole
+    Write-Output "client-role $ClientRole saved in $clientRolePath"
+    $localRole = Get-PillarClientRole -path $rfClientLocalPath
+    if ($localRole -and $localRole -ne $ClientRole) {
+        Write-Host "rf-client-local.sls overrides it with client-role: $localRole until that line is removed." -ForegroundColor Yellow
+    }
+}
 
 if ($SkipInstall) {
     Write-Output ""
@@ -688,6 +788,8 @@ if ($bypassSaltProxy) {
         'proxy_host: ""'
     ) -Encoding ASCII
 }
+
+Resolve-ClientRole
 
 $saltSteps = @(
     @("pkg.refresh_db", "saltenv=cloud"),

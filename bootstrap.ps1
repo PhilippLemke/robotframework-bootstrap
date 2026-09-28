@@ -11,7 +11,10 @@ param (
     [string]$S3ServiceUrl,
     [string]$S3Location,
     [ValidateSet('True', 'False')]
-    [string]$S3PathStyle
+    [string]$S3PathStyle,
+    # Client role of this machine, passed on to bootstrap-robotframework.ps1
+    [ValidateSet('coding', 'execution')]
+    [string]$ClientRole
 )
 
 $repo = "PhilippLemke/robotframework-bootstrap"
@@ -218,7 +221,7 @@ if ($SkipInstall) {
 if ($Version) {
     $bootstrapArgs.Version = $Version
 }
-foreach ($name in 'S3Bucket', 'S3ServiceUrl', 'S3Location', 'S3PathStyle') {
+foreach ($name in 'S3Bucket', 'S3ServiceUrl', 'S3Location', 'S3PathStyle', 'ClientRole') {
     if ($PSBoundParameters[$name]) {
         $bootstrapArgs[$name] = $PSBoundParameters[$name]
     }
