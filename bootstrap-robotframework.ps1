@@ -13,7 +13,9 @@ param (
     [string]$S3PathStyle,
     # Client role of this machine; saved, so later runs don't ask again
     [ValidateSet('coding', 'execution')]
-    [string]$ClientRole
+    [string]$ClientRole,
+    # Don't sync and install the pip packages from S3 after the Salt steps
+    [switch]$SkipPip
 )
 
 # Current released version of this script. Bump this by hand every time a new git tag is cut.
@@ -28,6 +30,9 @@ $cloudConfBackupPath = "$defRFInstallerPath\backup\cloud.conf"
 $cloudConfRestored = $false
 $rfClientLocalPath = "$defRFInstallerPath\salt-data\srv\pillar\rf-client-local.sls"
 $clientRolePath = "$defRFInstallerPath\salt-data\srv\pillar\client-role.sls"
+$pipPkgPath = "$defRFInstallerPath\pkgs\pip"
+$awsCliPath = "C:\Program Files\Amazon\AWSCLIV2\aws.exe"
+$defaultPythonHome = "C:\Program Files\Python310"
 $saltCallPath = "$defRFInstallerPath\salt-app\salt-call.exe"
 $saltConfDir = "$defRFInstallerPath\salt-data\conf"
 $noProxyConfPath = "$defRFInstallerPath\salt-data\conf\minion.d\zz-no-proxy.conf"
@@ -153,6 +158,15 @@ function Invoke-SelfUpdate {
             Write-Host "$tag doesn't support -ClientRole, it is ignored." -ForegroundColor Yellow
         } else {
             $argString += " -ClientRole $ClientRole"
+        }
+    }
+
+    # -SkipPip exists from v1.5.0 on (older releases don't install pip packages at all)
+    if ($SkipPip) {
+        if (Test-NewerVersion -tag "v1.5.0" -current $tag) {
+            Write-Host "$tag has no pip package step, -SkipPip is not needed."
+        } else {
+            $argString += " -SkipPip"
         }
     }
 
@@ -503,6 +517,43 @@ function Write-InstallCommands {
     Write-Output "salt-call --local --config-dir=$saltConfDir state.apply deploy-rf-client saltenv=cloud -l info"
 }
 
+# Locate the AWS CLI: its default install location first, then PATH. Returns $null if missing.
+function Get-AwsCliPath {
+    if (Test-Path -Path $awsCliPath) {
+        return $awsCliPath
+    }
+    $command = Get-Command -Name aws -ErrorAction SilentlyContinue
+    if ($command) {
+        return $command.Source
+    }
+    return $null
+}
+
+# Ask Salt for python_home, so an override in rf-client-local.sls is respected. Falls back to the
+# default if Salt returns nothing.
+function Get-PythonHome {
+    try {
+        $json = & $saltCallPath --local "--config-dir=$saltConfDir" -l quiet --out=json pillar.get python_home 2>$null | Out-String
+        $pythonHome = ($json | ConvertFrom-Json).local
+    } catch {
+        $pythonHome = $null
+    }
+    if ($pythonHome) {
+        return $pythonHome
+    }
+    return $defaultPythonHome
+}
+
+# Read s3.bucket from cloud.conf (surrounding quotes removed)
+function Get-CloudConfBucket {
+    foreach ($line in Get-Content -Path $cloudConfPath) {
+        if ($line -match '^\s*s3\.bucket\s*:\s*(.*?)\s*$') {
+            return $Matches[1].Trim("'`"")
+        }
+    }
+    return $null
+}
+
 # Quick TCP connectivity check against a host:port, with a short timeout. Used both for the proxy
 # reachability check and the direct-connection fallback check below.
 function Test-TcpConnection {
@@ -814,6 +865,72 @@ if ($failedStep) {
     Write-Host "FAILED" -ForegroundColor Red
     Write-Output "salt-call $($failedStep -join ' ') failed. See $defRFInstallerPath\salt-var\salt.log for details."
     exit 1
+}
+
+# Pip packages come from the S3 bucket's pip folder and are installed offline. The sync runs the
+# AWS CLI directly with the credentials Salt wrote to ~/.aws; download-pip-pkgs-cloud.sls stays
+# available as a manual fallback.
+if ($SkipPip) {
+    Write-Output ""
+    Write-Output "-SkipPip given: skipping the pip packages."
+} else {
+    Write-Section "Pip Packages"
+    $aws = Get-AwsCliPath
+    if (-not $aws) {
+        Write-Output "AWS CLI not found, skipping pip packages."
+    } else {
+        $bucket = Get-CloudConfBucket
+        $python = Join-Path (Get-PythonHome) "python.exe"
+        $requirementsPath = Join-Path $pipPkgPath "requirements.txt"
+        $pipCommand = "`"$python`" -m pip install --no-index --find-links=`"$pipPkgPath`" -r `"$requirementsPath`""
+
+        # Same proxy as Salt uses, unless the user chose to continue without it for this run
+        $saltProxy = Get-ProxyFromCloudConf -path $cloudConfPath
+        $savedHttpProxy = $env:HTTP_PROXY
+        $savedHttpsProxy = $env:HTTPS_PROXY
+        if ($saltProxy -and -not $bypassSaltProxy) {
+            $env:HTTP_PROXY = $saltProxy
+            $env:HTTPS_PROXY = $saltProxy
+        }
+
+        Write-Output "aws s3 sync s3://$bucket/pip $pipPkgPath"
+        try {
+            & $aws s3 sync "s3://$bucket/pip" $pipPkgPath | Out-Host
+            $syncExitCode = $LASTEXITCODE
+        } finally {
+            $env:HTTP_PROXY = $savedHttpProxy
+            $env:HTTPS_PROXY = $savedHttpsProxy
+        }
+
+        # Exit code 2 means some files were skipped, but the rest was synced
+        if ($syncExitCode -eq 2) {
+            Write-Host "aws s3 sync skipped some files, see the output above." -ForegroundColor Yellow
+        } elseif ($syncExitCode -ne 0) {
+            Write-Host "FAILED" -ForegroundColor Red
+            Write-Output "aws s3 sync failed (exit code $syncExitCode). Manual fallback via Salt:"
+            Write-Output "  cd /d $defRFInstallerPath\salt-app\"
+            Write-Output "  salt-call --local --config-dir=$saltConfDir state.apply download-pip-pkgs-cloud saltenv=cloud -l info"
+            Write-Output "  $pipCommand"
+            exit 1
+        }
+
+        if (-not (Test-Path -Path $requirementsPath)) {
+            Write-Output "No requirements.txt in $pipPkgPath, skipping pip install."
+        } elseif (-not (Test-Path -Path $python)) {
+            Write-Host "FAILED" -ForegroundColor Red
+            Write-Output "Python not found at $python, cannot install the pip packages."
+            exit 1
+        } else {
+            Write-Output ""
+            Write-Output $pipCommand
+            & $python -m pip install --no-index "--find-links=$pipPkgPath" -r $requirementsPath | Out-Host
+            if ($LASTEXITCODE -ne 0) {
+                Write-Host "FAILED" -ForegroundColor Red
+                Write-Output "pip install failed (exit code $LASTEXITCODE)."
+                exit 1
+            }
+        }
+    }
 }
 
 Write-Output ""
