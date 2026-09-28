@@ -87,9 +87,20 @@ settings, so proxy settings from the old one are not carried over.
 C:\Temp\bootstrap.ps1 -S3Bucket my-bucket
 ```
 
+#### Client role
+Before the first software installation, the script asks for the client role (`coding`: Robot
+Framework plus VS Code, Greenshot and extensions, the default; `execution`: Robot Framework
+runtime only) and saves it in `C:\RF-Bootstrap\salt-data\srv\pillar\client-role.sls`. Later runs
+use the saved role without asking. Pass `-ClientRole coding|execution` to set or change it
+without the question, e.g. `C:\Temp\bootstrap.ps1 -ClientRole execution`.
+
+An active `client-role:` line in `rf-client-local.sls` overrides the saved role. Changing the role
+from coding to execution doesn't uninstall VS Code or Greenshot; Salt only installs what the role
+needs.
+
 #### Machine-specific settings
 `salt-data\srv\pillar\rf-client.sls` is overwritten with the release defaults on every run. Put
-machine-specific changes (e.g. `client-role`, versions, VS Code extensions) into
+machine-specific changes (e.g. versions, VS Code extensions) into
 `C:\RF-Bootstrap\salt-data\srv\pillar\rf-client-local.sls` instead. The script creates it with
 commented examples on first run and never overwrites it. Its values override the defaults. Dicts
 are merged, lists (e.g. `vscode-extensions`) replace the default list completely.
