@@ -172,6 +172,11 @@ function Invoke-SelfUpdate {
         }
     }
 
+    # Keep verbose mode (older releases without CmdletBinding just ignore it)
+    if ($VerbosePreference -eq 'Continue') {
+        $argString += " -Verbose"
+    }
+
     # Wait for the relaunched run so it keeps the console to itself (a caller like the README
     # one-liner's trailing `cmd` would otherwise start and compete for input) and pass on its
     # exit code.
@@ -895,13 +900,23 @@ if ($SkipPip) {
             $env:HTTPS_PROXY = $saltProxy
         }
 
+        # Full output only with -Verbose; otherwise it is captured, summarized, and shown on failure
+        $showDetails = $VerbosePreference -eq 'Continue'
         Write-Output "aws s3 sync s3://$bucket/pip $pipPkgPath"
         try {
-            & $aws s3 sync "s3://$bucket/pip" $pipPkgPath | Out-Host
+            if ($showDetails) {
+                & $aws s3 sync "s3://$bucket/pip" $pipPkgPath | Out-Host
+            } else {
+                $syncOutput = & $aws s3 sync "s3://$bucket/pip" $pipPkgPath --no-progress 2>&1 | ForEach-Object { "$_" }
+            }
             $syncExitCode = $LASTEXITCODE
         } finally {
             $env:HTTP_PROXY = $savedHttpProxy
             $env:HTTPS_PROXY = $savedHttpsProxy
+        }
+
+        if ($syncExitCode -ne 0 -and -not $showDetails) {
+            $syncOutput | Out-Host
         }
 
         # Exit code 2 means some files were skipped, but the rest was synced
@@ -916,6 +931,12 @@ if ($SkipPip) {
             exit 1
         }
 
+        if (-not $showDetails) {
+            $downloaded = @($syncOutput | Where-Object { $_ -match '^download: ' }).Count
+            $total = @(Get-ChildItem -Path $pipPkgPath -File).Count
+            Write-Output "Sync successful: $downloaded file(s) downloaded, $total file(s) in $pipPkgPath."
+        }
+
         if (-not (Test-Path -Path $requirementsPath)) {
             Write-Output "No requirements.txt in $pipPkgPath, skipping pip install."
         } elseif (-not (Test-Path -Path $python)) {
@@ -925,11 +946,33 @@ if ($SkipPip) {
         } else {
             Write-Output ""
             Write-Output $pipCommand
-            & $python -m pip install --no-index "--find-links=$pipPkgPath" -r $requirementsPath | Out-Host
-            if ($LASTEXITCODE -ne 0) {
+            if ($showDetails) {
+                & $python -m pip install --no-index "--find-links=$pipPkgPath" -r $requirementsPath | Out-Host
+            } else {
+                $pipOutput = & $python -m pip install --no-index "--find-links=$pipPkgPath" -r $requirementsPath 2>&1 | ForEach-Object { "$_" }
+            }
+            $pipExitCode = $LASTEXITCODE
+            if ($pipExitCode -ne 0) {
+                if (-not $showDetails) {
+                    $pipOutput | Out-Host
+                }
                 Write-Host "FAILED" -ForegroundColor Red
-                Write-Output "pip install failed (exit code $LASTEXITCODE)."
+                Write-Output "pip install failed (exit code $pipExitCode)."
                 exit 1
+            }
+
+            if (-not $showDetails) {
+                $installedLine = $pipOutput | Where-Object { $_ -match '^Successfully installed ' } | Select-Object -Last 1
+                $installed = @()
+                if ($installedLine) {
+                    $installed = @(($installedLine -replace '^Successfully installed ', '').Trim() -split '\s+')
+                }
+                $satisfied = @($pipOutput | Where-Object { $_ -match '^Requirement already satisfied' }).Count
+                if ($installed.Count -gt 0) {
+                    Write-Output "Install successful: $($installed.Count) package(s) installed ($($installed -join ', ')), $satisfied already up to date."
+                } else {
+                    Write-Output "Install successful: nothing new to install, $satisfied package(s) already up to date."
+                }
             }
         }
     }

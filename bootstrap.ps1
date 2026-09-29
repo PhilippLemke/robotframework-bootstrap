@@ -225,6 +225,9 @@ if ($SkipInstall) {
 if ($SkipPip) {
     $bootstrapArgs.SkipPip = $true
 }
+if ($VerbosePreference -eq 'Continue') {
+    $bootstrapArgs.Verbose = $true
+}
 if ($Version) {
     $bootstrapArgs.Version = $Version
 }
