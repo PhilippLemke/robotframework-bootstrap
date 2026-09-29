@@ -89,6 +89,8 @@ from cloud.conf) and installs them offline:
 - If the sync or the install fails, the script exits with code 1 and prints the manual fallback
   via Salt (`state.apply download-pip-pkgs-cloud saltenv=cloud`).
 - Pass `-SkipPip` to leave this step out.
+- By default only a summary is shown (files synced, packages installed); pass `-Verbose` for the
+  full output of `aws s3 sync` and `pip`. On a failure the output is always shown.
 
 #### S3 settings via parameters
 `bootstrap.ps1` and `bootstrap-robotframework.ps1` can write the S3 settings of `cloud.conf`:
