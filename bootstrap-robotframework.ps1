@@ -1,3 +1,5 @@
+# Advanced script: unknown parameters are rejected instead of silently ignored, and -Verbose works
+[CmdletBinding()]
 param (
     [string]$Proxy,
     [switch]$AlreadyRelaunched,
