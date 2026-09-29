@@ -1,3 +1,5 @@
+# Advanced script: unknown parameters are rejected instead of silently ignored, and -Verbose works
+[CmdletBinding()]
 param (
     [string]$Proxy,
     [switch]$AlreadyRelaunched,
@@ -13,11 +15,13 @@ param (
     [string]$S3PathStyle,
     # Client role of this machine; saved, so later runs don't ask again
     [ValidateSet('coding', 'execution')]
-    [string]$ClientRole
+    [string]$ClientRole,
+    # Don't sync and install the pip packages from S3 after the Salt steps
+    [switch]$SkipPip
 )
 
 # Current released version of this script. Bump this by hand every time a new git tag is cut.
-$scriptVersion = "v1.4.0"
+$scriptVersion = "v1.5.0"
 
 # Define the local path to save the installer
 $defRFInstallerPath = "C:\RF-Bootstrap"
@@ -28,6 +32,9 @@ $cloudConfBackupPath = "$defRFInstallerPath\backup\cloud.conf"
 $cloudConfRestored = $false
 $rfClientLocalPath = "$defRFInstallerPath\salt-data\srv\pillar\rf-client-local.sls"
 $clientRolePath = "$defRFInstallerPath\salt-data\srv\pillar\client-role.sls"
+$pipPkgPath = "$defRFInstallerPath\pkgs\pip"
+$awsCliPath = "C:\Program Files\Amazon\AWSCLIV2\aws.exe"
+$defaultPythonHome = "C:\Program Files\Python310"
 $saltCallPath = "$defRFInstallerPath\salt-app\salt-call.exe"
 $saltConfDir = "$defRFInstallerPath\salt-data\conf"
 $noProxyConfPath = "$defRFInstallerPath\salt-data\conf\minion.d\zz-no-proxy.conf"
@@ -154,6 +161,20 @@ function Invoke-SelfUpdate {
         } else {
             $argString += " -ClientRole $ClientRole"
         }
+    }
+
+    # -SkipPip exists from v1.5.0 on (older releases don't install pip packages at all)
+    if ($SkipPip) {
+        if (Test-NewerVersion -tag "v1.5.0" -current $tag) {
+            Write-Host "$tag has no pip package step, -SkipPip is not needed."
+        } else {
+            $argString += " -SkipPip"
+        }
+    }
+
+    # Keep verbose mode (older releases without CmdletBinding just ignore it)
+    if ($VerbosePreference -eq 'Continue') {
+        $argString += " -Verbose"
     }
 
     # Wait for the relaunched run so it keeps the console to itself (a caller like the README
@@ -503,6 +524,43 @@ function Write-InstallCommands {
     Write-Output "salt-call --local --config-dir=$saltConfDir state.apply deploy-rf-client saltenv=cloud -l info"
 }
 
+# Locate the AWS CLI: its default install location first, then PATH. Returns $null if missing.
+function Get-AwsCliPath {
+    if (Test-Path -Path $awsCliPath) {
+        return $awsCliPath
+    }
+    $command = Get-Command -Name aws -ErrorAction SilentlyContinue
+    if ($command) {
+        return $command.Source
+    }
+    return $null
+}
+
+# Ask Salt for python_home, so an override in rf-client-local.sls is respected. Falls back to the
+# default if Salt returns nothing.
+function Get-PythonHome {
+    try {
+        $json = & $saltCallPath --local "--config-dir=$saltConfDir" -l quiet --out=json pillar.get python_home 2>$null | Out-String
+        $pythonHome = ($json | ConvertFrom-Json).local
+    } catch {
+        $pythonHome = $null
+    }
+    if ($pythonHome) {
+        return $pythonHome
+    }
+    return $defaultPythonHome
+}
+
+# Read s3.bucket from cloud.conf (surrounding quotes removed)
+function Get-CloudConfBucket {
+    foreach ($line in Get-Content -Path $cloudConfPath) {
+        if ($line -match '^\s*s3\.bucket\s*:\s*(.*?)\s*$') {
+            return $Matches[1].Trim("'`"")
+        }
+    }
+    return $null
+}
+
 # Quick TCP connectivity check against a host:port, with a short timeout. Used both for the proxy
 # reachability check and the direct-connection fallback check below.
 function Test-TcpConnection {
@@ -814,6 +872,110 @@ if ($failedStep) {
     Write-Host "FAILED" -ForegroundColor Red
     Write-Output "salt-call $($failedStep -join ' ') failed. See $defRFInstallerPath\salt-var\salt.log for details."
     exit 1
+}
+
+# Pip packages come from the S3 bucket's pip folder and are installed offline. The sync runs the
+# AWS CLI directly with the credentials Salt wrote to ~/.aws; download-pip-pkgs-cloud.sls stays
+# available as a manual fallback.
+if ($SkipPip) {
+    Write-Output ""
+    Write-Output "-SkipPip given: skipping the pip packages."
+} else {
+    Write-Section "Pip Packages"
+    $aws = Get-AwsCliPath
+    if (-not $aws) {
+        Write-Output "AWS CLI not found, skipping pip packages."
+    } else {
+        $bucket = Get-CloudConfBucket
+        $python = Join-Path (Get-PythonHome) "python.exe"
+        $requirementsPath = Join-Path $pipPkgPath "requirements.txt"
+        $pipCommand = "`"$python`" -m pip install --no-index --find-links=`"$pipPkgPath`" -r `"$requirementsPath`""
+
+        # Same proxy as Salt uses, unless the user chose to continue without it for this run
+        $saltProxy = Get-ProxyFromCloudConf -path $cloudConfPath
+        $savedHttpProxy = $env:HTTP_PROXY
+        $savedHttpsProxy = $env:HTTPS_PROXY
+        if ($saltProxy -and -not $bypassSaltProxy) {
+            $env:HTTP_PROXY = $saltProxy
+            $env:HTTPS_PROXY = $saltProxy
+        }
+
+        # Full output only with -Verbose; otherwise it is captured, summarized, and shown on failure
+        $showDetails = $VerbosePreference -eq 'Continue'
+        Write-Output "aws s3 sync s3://$bucket/pip $pipPkgPath"
+        try {
+            if ($showDetails) {
+                & $aws s3 sync "s3://$bucket/pip" $pipPkgPath | Out-Host
+            } else {
+                $syncOutput = & $aws s3 sync "s3://$bucket/pip" $pipPkgPath --no-progress 2>&1 | ForEach-Object { "$_" }
+            }
+            $syncExitCode = $LASTEXITCODE
+        } finally {
+            $env:HTTP_PROXY = $savedHttpProxy
+            $env:HTTPS_PROXY = $savedHttpsProxy
+        }
+
+        if ($syncExitCode -ne 0 -and -not $showDetails) {
+            $syncOutput | Out-Host
+        }
+
+        # Exit code 2 means some files were skipped, but the rest was synced
+        if ($syncExitCode -eq 2) {
+            Write-Host "aws s3 sync skipped some files, see the output above." -ForegroundColor Yellow
+        } elseif ($syncExitCode -ne 0) {
+            Write-Host "FAILED" -ForegroundColor Red
+            Write-Output "aws s3 sync failed (exit code $syncExitCode). Manual fallback via Salt:"
+            Write-Output "  cd /d $defRFInstallerPath\salt-app\"
+            Write-Output "  salt-call --local --config-dir=$saltConfDir state.apply download-pip-pkgs-cloud saltenv=cloud -l info"
+            Write-Output "  $pipCommand"
+            exit 1
+        }
+
+        if (-not $showDetails) {
+            $downloaded = @($syncOutput | Where-Object { $_ -match '^download: ' }).Count
+            $total = @(Get-ChildItem -Path $pipPkgPath -File).Count
+            Write-Output "Sync successful: $downloaded file(s) downloaded, $total file(s) in $pipPkgPath."
+        }
+
+        if (-not (Test-Path -Path $requirementsPath)) {
+            Write-Output "No requirements.txt in $pipPkgPath, skipping pip install."
+        } elseif (-not (Test-Path -Path $python)) {
+            Write-Host "FAILED" -ForegroundColor Red
+            Write-Output "Python not found at $python, cannot install the pip packages."
+            exit 1
+        } else {
+            Write-Output ""
+            Write-Output $pipCommand
+            if ($showDetails) {
+                & $python -m pip install --no-index "--find-links=$pipPkgPath" -r $requirementsPath | Out-Host
+            } else {
+                $pipOutput = & $python -m pip install --no-index "--find-links=$pipPkgPath" -r $requirementsPath 2>&1 | ForEach-Object { "$_" }
+            }
+            $pipExitCode = $LASTEXITCODE
+            if ($pipExitCode -ne 0) {
+                if (-not $showDetails) {
+                    $pipOutput | Out-Host
+                }
+                Write-Host "FAILED" -ForegroundColor Red
+                Write-Output "pip install failed (exit code $pipExitCode)."
+                exit 1
+            }
+
+            if (-not $showDetails) {
+                $installedLine = $pipOutput | Where-Object { $_ -match '^Successfully installed ' } | Select-Object -Last 1
+                $installed = @()
+                if ($installedLine) {
+                    $installed = @(($installedLine -replace '^Successfully installed ', '').Trim() -split '\s+')
+                }
+                $satisfied = @($pipOutput | Where-Object { $_ -match '^Requirement already satisfied' }).Count
+                if ($installed.Count -gt 0) {
+                    Write-Output "Install successful: $($installed.Count) package(s) installed ($($installed -join ', ')), $satisfied already up to date."
+                } else {
+                    Write-Output "Install successful: nothing new to install, $satisfied package(s) already up to date."
+                }
+            }
+        }
+    }
 }
 
 Write-Output ""

@@ -1,3 +1,5 @@
+# Advanced script: unknown parameters are rejected instead of silently ignored, and -Verbose works
+[CmdletBinding()]
 param (
     [string]$Proxy,
     [switch]$SkipInstall,
@@ -14,7 +16,9 @@ param (
     [string]$S3PathStyle,
     # Client role of this machine, passed on to bootstrap-robotframework.ps1
     [ValidateSet('coding', 'execution')]
-    [string]$ClientRole
+    [string]$ClientRole,
+    # Don't sync and install the pip packages from S3, passed on to bootstrap-robotframework.ps1
+    [switch]$SkipPip
 )
 
 $repo = "PhilippLemke/robotframework-bootstrap"
@@ -217,6 +221,12 @@ if ($Proxy) {
 }
 if ($SkipInstall) {
     $bootstrapArgs.SkipInstall = $true
+}
+if ($SkipPip) {
+    $bootstrapArgs.SkipPip = $true
+}
+if ($VerbosePreference -eq 'Continue') {
+    $bootstrapArgs.Verbose = $true
 }
 if ($Version) {
     $bootstrapArgs.Version = $Version
