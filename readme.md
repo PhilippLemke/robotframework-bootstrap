@@ -41,6 +41,11 @@ With a client role (`coding` or `execution`, saved without asking; see
 Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap.ps1 -OutFile C:\Temp\bootstrap.ps1; C:\Temp\bootstrap.ps1 -ClientRole execution; cmd
 ```
 
+Without syncing and installing the pip packages from S3 (see [Pip packages](#pip-packages)):
+```powershell
+Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap.ps1 -OutFile C:\Temp\bootstrap.ps1; C:\Temp\bootstrap.ps1 -SkipPip; cmd
+```
+
 #### Proxy
 The proxy is defined in one place, `C:\RF-Bootstrap\salt-data\conf\minion.d\proxy.conf`. Salt
 reads it as minion config (`proxy_host`, `proxy_port`, `proxy_username`, `proxy_password`), and
