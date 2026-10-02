@@ -4,7 +4,9 @@ param (
     # Proxy as http://host:port (credentials may be included as http://user:password@host:port),
     # or "none". Saved to proxy.conf; without it the saved proxy is used or asked for.
     [string]$Proxy,
-    # Basic auth for the proxy. Without -ProxyPassword the password is asked for.
+    # Basic auth for the proxy: a PSCredential (e.g. from Get-Credential, the same one as for the
+    # download of this script), or -ProxyUser with -ProxyPassword (asked for if missing).
+    [PSCredential]$ProxyCredential,
     [string]$ProxyUser,
     [string]$ProxyPassword,
     [switch]$SkipInstall,
@@ -154,7 +156,7 @@ function Write-ProxyConf {
     )
 
     $lines = @("# Proxy for bootstrap.ps1, bootstrap-robotframework.ps1 and Salt. Change it with")
-    $lines += "# bootstrap.ps1 -Proxy http://host:port [-ProxyUser ... -ProxyPassword ...] or -Proxy none."
+    $lines += "# bootstrap.ps1 -Proxy http://host:port [-ProxyCredential/-ProxyUser ...] or -Proxy none."
     if ($Url) {
         $uri = [System.Uri]$Url
         $lines += "proxy_host: $(ConvertTo-YamlString -value $uri.Host)"
@@ -302,7 +304,8 @@ function Resolve-Proxy {
     param (
         [string]$Proxy,
         [string]$ProxyUser,
-        [string]$ProxyPassword
+        [string]$ProxyPassword,
+        [PSCredential]$ProxyCredential
     )
 
     Move-LegacyProxyConf
@@ -314,6 +317,8 @@ function Resolve-Proxy {
         if (-not $settings) {
             Write-Host "Invalid -Proxy: $Proxy (expected http://host:port or none)" -ForegroundColor Red
             $settings = Read-ProxySettings
+        } elseif ($settings.Url -and $ProxyCredential) {
+            $settings.Credential = $ProxyCredential
         } elseif ($settings.Url -and $ProxyUser) {
             if (-not $ProxyPassword) {
                 $ProxyPassword = [System.Net.NetworkCredential]::new('', (Read-Host "Proxy password for $ProxyUser" -AsSecureString)).Password
@@ -321,8 +326,8 @@ function Resolve-Proxy {
             $settings.Credential = New-ProxyCredential -user $ProxyUser -password $ProxyPassword
         }
     } else {
-        if ($ProxyUser) {
-            Write-Host "-ProxyUser is ignored without -Proxy." -ForegroundColor Yellow
+        if ($ProxyUser -or $ProxyCredential) {
+            Write-Host "-ProxyUser/-ProxyCredential is ignored without -Proxy." -ForegroundColor Yellow
         }
         $settings = Read-ProxyConf
         if ($settings) {
@@ -377,7 +382,7 @@ function Resolve-Proxy {
 }
 #endregion
 
-Resolve-Proxy -Proxy $Proxy -ProxyUser $ProxyUser -ProxyPassword $ProxyPassword
+Resolve-Proxy -Proxy $Proxy -ProxyUser $ProxyUser -ProxyPassword $ProxyPassword -ProxyCredential $ProxyCredential
 $proxyParams = Get-ProxyParams
 
 # Create the temporary directory if it doesn't exist
