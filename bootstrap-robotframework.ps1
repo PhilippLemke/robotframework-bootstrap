@@ -255,8 +255,9 @@ function Format-Proxy {
     return $Url
 }
 
-# Check a proxy: "ok", "unreachable" (no TCP connection) or "auth" (HTTP 407, credentials missing
-# or rejected). Other errors of the test request count as ok, the proxy itself answered.
+# Check a proxy with a request to api.github.com through it. Returns @{ Result; Message }, Result
+# being "ok", "unreachable" (no TCP connection), "auth" (HTTP 407, credentials missing or rejected)
+# or "warning" (the proxy answered, but the test request failed for another reason).
 function Test-ProxyConnection {
     param (
         [string]$Url,
@@ -265,7 +266,7 @@ function Test-ProxyConnection {
 
     $uri = [System.Uri]$Url
     if (-not (Test-TcpConnection -ComputerName $uri.Host -Port $uri.Port)) {
-        return "unreachable"
+        return @{ Result = "unreachable"; Message = "No connection to $($uri.Host):$($uri.Port) within 3 seconds." }
     }
 
     $params = @{ Proxy = $Url }
@@ -277,10 +278,11 @@ function Test-ProxyConnection {
     } catch {
         $response = $_.Exception.Response
         if (($response -and [int]$response.StatusCode -eq 407) -or $_.Exception.Message -match '\b407\b') {
-            return "auth"
+            return @{ Result = "auth"; Message = "407 Proxy Authentication Required: credentials missing or rejected." }
         }
+        return @{ Result = "warning"; Message = $_.Exception.Message }
     }
-    return "ok"
+    return @{ Result = "ok"; Message = $null }
 }
 
 # Ask for the proxy and its credentials. Enter means no proxy / no authentication.
@@ -346,19 +348,26 @@ function Resolve-Proxy {
     }
 
     while ($settings.Url) {
-        $result = Test-ProxyConnection -Url $settings.Url -Credential $settings.Credential
-        if ($result -eq "ok") {
+        Write-Host -NoNewline "Testing proxy $(Format-Proxy -Url $settings.Url -Credential $settings.Credential) via $($proxyCheckUrl): "
+        $test = Test-ProxyConnection -Url $settings.Url -Credential $settings.Credential
+        if ($test.Result -eq "ok") {
+            Write-Host "OK" -ForegroundColor Green
             break
         }
-        if ($result -eq "unreachable") {
-            Write-Host "Proxy is not reachable within 3 seconds: $($settings.Url)" -ForegroundColor Red
+        if ($test.Result -eq "warning") {
+            Write-Host "WARNING" -ForegroundColor Yellow
+            Write-Host "The proxy answered, but the test request failed: $($test.Message)" -ForegroundColor Yellow
+            Write-Host "Continuing with this proxy, downloads may fail."
+            break
+        }
+        Write-Host "FAILED" -ForegroundColor Red
+        Write-Host $test.Message -ForegroundColor Red
+        if ($test.Result -eq "unreachable") {
             if (Test-TcpConnection -ComputerName "github.com" -Port 443) {
                 Write-Host "A direct connection to github.com works."
             } else {
                 Write-Host "A direct connection to github.com doesn't work either."
             }
-        } else {
-            Write-Host "Proxy rejected the credentials (407 Proxy Authentication Required): $(Format-Proxy -Url $settings.Url -Credential $settings.Credential)" -ForegroundColor Red
         }
 
         $answer = Read-Host "[r] Re-enter proxy   [c] Continue without proxy   [a] Abort"
@@ -375,7 +384,7 @@ function Resolve-Proxy {
 
     if ($save) {
         Write-ProxyConf -Url $settings.Url -Credential $settings.Credential
-        Write-Host "Proxy: $(Format-Proxy -Url $settings.Url -Credential $settings.Credential) (saved to proxy.conf)"
+        Write-Host "Proxy settings saved to $($proxyConfPath): $(Format-Proxy -Url $settings.Url -Credential $settings.Credential)"
     }
     $script:ProxyUrl = $settings.Url
     $script:ProxyCred = $settings.Credential
