@@ -1,6 +1,8 @@
 # Advanced script: unknown parameters are rejected instead of silently ignored, and -Verbose works
 [CmdletBinding()]
 param (
+    # Only for relaunches from releases before v1.6.0 and machines without proxy.conf: the proxy is
+    # set up with bootstrap.ps1 (or asked for) and read from proxy.conf.
     [string]$Proxy,
     [switch]$AlreadyRelaunched,
     [switch]$SkipInstall,
@@ -37,6 +39,7 @@ $awsCliPath = "C:\Program Files\Amazon\AWSCLIV2\aws.exe"
 $defaultPythonHome = "C:\Program Files\Python310"
 $saltCallPath = "$defRFInstallerPath\salt-app\salt-call.exe"
 $saltConfDir = "$defRFInstallerPath\salt-data\conf"
+# Left over by releases before v1.6.0, would override proxy.conf
 $noProxyConfPath = "$defRFInstallerPath\salt-data\conf\minion.d\zz-no-proxy.conf"
 
 # Print a section header to visually group the cmd output
@@ -48,21 +51,348 @@ function Write-Section {
     Write-Host "# $Title" -ForegroundColor Cyan
 }
 
+#region Proxy - keep identical in bootstrap.ps1 and bootstrap-robotframework.ps1
+# proxy.conf is the only place the proxy is defined. Salt reads it as minion config, the scripts
+# read it for their own downloads and for the AWS CLI/pip. "No proxy" is saved as an empty
+# proxy_host, so no later run asks again.
+$proxyConfPath = "C:\RF-Bootstrap\salt-data\conf\minion.d\proxy.conf"
+$proxyLegacyConfPath = "C:\RF-Bootstrap\salt-data\conf\minion.d\cloud.conf"
+$proxyCheckUrl = "https://api.github.com"
+# The resolved proxy: "http://host:port" (or $null) and a PSCredential for Basic auth (or $null)
+$ProxyUrl = $null
+$ProxyCred = $null
+
+# Quote a value for YAML, so credentials with special characters are read back unchanged
+function ConvertTo-YamlString {
+    param (
+        [string]$value
+    )
+    return "'" + ($value -replace "'", "''") + "'"
+}
+
+# Read back a value written by ConvertTo-YamlString (or a plain/double-quoted one)
+function ConvertFrom-YamlString {
+    param (
+        [string]$value
+    )
+    if ($value.Length -ge 2 -and $value.StartsWith("'") -and $value.EndsWith("'")) {
+        return $value.Substring(1, $value.Length - 2) -replace "''", "'"
+    }
+    return $value.Trim('"')
+}
+
+# Quick TCP connectivity check against a host:port, with a short timeout
+function Test-TcpConnection {
+    param (
+        [string]$ComputerName,
+        [int]$Port,
+        [int]$TimeoutMs = 3000
+    )
+
+    $tcpClient = New-Object System.Net.Sockets.TcpClient
+    try {
+        $asyncResult = $tcpClient.BeginConnect($ComputerName, $Port, $null, $null)
+        return $asyncResult.AsyncWaitHandle.WaitOne($TimeoutMs) -and $tcpClient.Connected
+    } catch {
+        return $false
+    } finally {
+        $tcpClient.Close()
+    }
+}
+
+function New-ProxyCredential {
+    param (
+        [string]$user,
+        [string]$password
+    )
+    # NetworkCredential also accepts an empty password, unlike ConvertTo-SecureString
+    $securePassword = (New-Object System.Net.NetworkCredential('', $password)).SecurePassword
+    return New-Object System.Management.Automation.PSCredential($user, $securePassword)
+}
+
+# Parse a proxy as given by the user: "none", http://host:port or http://user:password@host:port
+# (URL-encoded credentials). Returns @{ Url; Credential }, with Url $null for "none", or $null if
+# the format is invalid.
+function ConvertFrom-ProxyInput {
+    param (
+        [string]$value
+    )
+
+    if ($value -eq 'none') {
+        return @{ Url = $null; Credential = $null }
+    }
+
+    # Checking the scheme matters, because e.g. "myproxy:3128" parses as a URI with scheme "myproxy"
+    $uri = $null
+    if (-not [System.Uri]::TryCreate($value, [System.UriKind]::Absolute, [ref]$uri) -or
+        $uri.Scheme -notin @('http', 'https') -or -not $uri.Host) {
+        return $null
+    }
+
+    $credential = $null
+    if ($uri.UserInfo) {
+        $user, $password = $uri.UserInfo -split ':', 2
+        $credential = New-ProxyCredential -user ([System.Uri]::UnescapeDataString($user)) -password ([System.Uri]::UnescapeDataString("$password"))
+    }
+    return @{ Url = "http://$($uri.Host):$($uri.Port)"; Credential = $credential }
+}
+
+# Proxy settings of proxy.conf as @{ Url; Credential }, or $null if there is no proxy.conf
+function Read-ProxyConf {
+    if (-not (Test-Path -Path $proxyConfPath)) {
+        return $null
+    }
+
+    $values = @{}
+    foreach ($line in Get-Content -Path $proxyConfPath) {
+        if ($line -match '^\s*(proxy_host|proxy_port|proxy_username|proxy_password)\s*:\s*(.*?)\s*$') {
+            $values[$Matches[1]] = ConvertFrom-YamlString -value $Matches[2]
+        }
+    }
+
+    if (-not $values['proxy_host'] -or -not $values['proxy_port'] -or $values['proxy_port'] -eq '0') {
+        return @{ Url = $null; Credential = $null }
+    }
+    $credential = $null
+    if ($values['proxy_username']) {
+        $credential = New-ProxyCredential -user $values['proxy_username'] -password $values['proxy_password']
+    }
+    return @{ Url = "http://$($values['proxy_host']):$($values['proxy_port'])"; Credential = $credential }
+}
+
+# Save the proxy to proxy.conf; without a Url it is saved as "no proxy"
+function Write-ProxyConf {
+    param (
+        [string]$Url,
+        [PSCredential]$Credential
+    )
+
+    $lines = @("# Proxy for bootstrap.ps1, bootstrap-robotframework.ps1 and Salt. Change it with")
+    $lines += "# bootstrap.ps1 -Proxy http://host:port [-ProxyUser ... -ProxyPassword ...] or -Proxy none."
+    if ($Url) {
+        $uri = [System.Uri]$Url
+        $lines += "proxy_host: $(ConvertTo-YamlString -value $uri.Host)"
+        $lines += "proxy_port: $($uri.Port)"
+        if ($Credential) {
+            $lines += "proxy_username: $(ConvertTo-YamlString -value $Credential.UserName)"
+            $lines += "proxy_password: $(ConvertTo-YamlString -value $Credential.GetNetworkCredential().Password)"
+        }
+    } else {
+        $lines += "proxy_host: ''"
+        $lines += "proxy_port: 0"
+    }
+
+    New-Item -ItemType Directory -Force -Path (Split-Path -Path $proxyConfPath) | Out-Null
+    # UTF-8 without BOM, a BOM would end up in front of the first key when Salt reads the file
+    [System.IO.File]::WriteAllLines($proxyConfPath, [string[]]$lines, (New-Object System.Text.UTF8Encoding $false))
+}
+
+# Releases before v1.6.0 kept the proxy in cloud.conf (proxy_*, s3.proxy_*). Move it to proxy.conf
+# unless that already exists, and remove the proxy lines from cloud.conf either way.
+function Move-LegacyProxyConf {
+    if (-not (Test-Path -Path $proxyLegacyConfPath)) {
+        return
+    }
+
+    $values = @{}
+    $keptLines = @()
+    foreach ($line in Get-Content -Path $proxyLegacyConfPath) {
+        if ($line -match '^\s*(s3\.)?(proxy_\w+)\s*:\s*(.*?)\s*$') {
+            # Plain proxy_* wins over s3.proxy_*, proxy_user was the old name of proxy_username
+            $key = $Matches[2] -replace '^proxy_user$', 'proxy_username'
+            if (-not $Matches[1] -or -not $values.ContainsKey($key)) {
+                $values[$key] = ConvertFrom-YamlString -value $Matches[3]
+            }
+        } else {
+            $keptLines += $line
+        }
+    }
+    if ($values.Count -eq 0) {
+        return
+    }
+
+    if (-not (Test-Path -Path $proxyConfPath)) {
+        $url = $null
+        $credential = $null
+        if ($values['proxy_host'] -and $values['proxy_port'] -and $values['proxy_port'] -ne '0') {
+            $url = "http://$($values['proxy_host']):$($values['proxy_port'])"
+            if ($values['proxy_username']) {
+                $credential = New-ProxyCredential -user $values['proxy_username'] -password $values['proxy_password']
+            }
+        }
+        Write-ProxyConf -Url $url -Credential $credential
+        Write-Host "Proxy settings moved from cloud.conf to $proxyConfPath."
+    } else {
+        Write-Host "Old proxy settings removed from cloud.conf, $proxyConfPath is used instead."
+    }
+    [System.IO.File]::WriteAllLines($proxyLegacyConfPath, [string[]]$keptLines, (New-Object System.Text.UTF8Encoding $false))
+}
+
+# Parameters for Invoke-WebRequest/Invoke-RestMethod to go through the resolved proxy
+function Get-ProxyParams {
+    $params = @{}
+    if ($ProxyUrl) {
+        $params.Proxy = $ProxyUrl
+        if ($ProxyCred) {
+            $params.ProxyCredential = $ProxyCred
+        }
+    }
+    return $params
+}
+
+# Human-readable description of a proxy, without the password
+function Format-Proxy {
+    param (
+        [string]$Url,
+        [PSCredential]$Credential
+    )
+    if (-not $Url) {
+        return "none"
+    }
+    if ($Credential) {
+        return "$Url (user $($Credential.UserName))"
+    }
+    return $Url
+}
+
+# Check a proxy: "ok", "unreachable" (no TCP connection) or "auth" (HTTP 407, credentials missing
+# or rejected). Other errors of the test request count as ok, the proxy itself answered.
+function Test-ProxyConnection {
+    param (
+        [string]$Url,
+        [PSCredential]$Credential
+    )
+
+    $uri = [System.Uri]$Url
+    if (-not (Test-TcpConnection -ComputerName $uri.Host -Port $uri.Port)) {
+        return "unreachable"
+    }
+
+    $params = @{ Proxy = $Url }
+    if ($Credential) {
+        $params.ProxyCredential = $Credential
+    }
+    try {
+        Invoke-WebRequest -Uri $proxyCheckUrl -Method Head -UseBasicParsing -TimeoutSec 15 -ErrorAction Stop @params | Out-Null
+    } catch {
+        $response = $_.Exception.Response
+        if (($response -and [int]$response.StatusCode -eq 407) -or $_.Exception.Message -match '\b407\b') {
+            return "auth"
+        }
+    }
+    return "ok"
+}
+
+# Ask for the proxy and its credentials. Enter means no proxy / no authentication.
+function Read-ProxySettings {
+    while ($true) {
+        $answer = Read-Host "Proxy, e.g. http://myproxy:3128 (Enter = none)"
+        if (-not $answer) {
+            return @{ Url = $null; Credential = $null }
+        }
+        $settings = ConvertFrom-ProxyInput -value $answer
+        if ($settings) {
+            break
+        }
+        Write-Host "Invalid proxy: $answer (expected http://host:port)" -ForegroundColor Red
+    }
+
+    if ($settings.Url -and -not $settings.Credential) {
+        $user = Read-Host "Proxy user (Enter = no authentication)"
+        if ($user) {
+            $password = [System.Net.NetworkCredential]::new('', (Read-Host "Proxy password" -AsSecureString)).Password
+            $settings.Credential = New-ProxyCredential -user $user -password $password
+        }
+    }
+    return $settings
+}
+
+# Resolve the proxy for this run and save it to proxy.conf: from the parameters if given, else from
+# proxy.conf, else asked for. A proxy that is unreachable or rejects the credentials can be
+# re-entered, dropped or the run aborted. Sets $script:ProxyUrl and $script:ProxyCred.
+function Resolve-Proxy {
+    param (
+        [string]$Proxy,
+        [string]$ProxyUser,
+        [string]$ProxyPassword
+    )
+
+    Move-LegacyProxyConf
+
+    $settings = $null
+    $save = $true
+    if ($Proxy) {
+        $settings = ConvertFrom-ProxyInput -value $Proxy
+        if (-not $settings) {
+            Write-Host "Invalid -Proxy: $Proxy (expected http://host:port or none)" -ForegroundColor Red
+            $settings = Read-ProxySettings
+        } elseif ($settings.Url -and $ProxyUser) {
+            if (-not $ProxyPassword) {
+                $ProxyPassword = [System.Net.NetworkCredential]::new('', (Read-Host "Proxy password for $ProxyUser" -AsSecureString)).Password
+            }
+            $settings.Credential = New-ProxyCredential -user $ProxyUser -password $ProxyPassword
+        }
+    } else {
+        if ($ProxyUser) {
+            Write-Host "-ProxyUser is ignored without -Proxy." -ForegroundColor Yellow
+        }
+        $settings = Read-ProxyConf
+        if ($settings) {
+            $save = $false
+            Write-Host "Proxy: $(Format-Proxy -Url $settings.Url -Credential $settings.Credential) (from proxy.conf)"
+        } else {
+            $settings = Read-ProxySettings
+        }
+    }
+
+    while ($settings.Url) {
+        $result = Test-ProxyConnection -Url $settings.Url -Credential $settings.Credential
+        if ($result -eq "ok") {
+            break
+        }
+        if ($result -eq "unreachable") {
+            Write-Host "Proxy is not reachable within 3 seconds: $($settings.Url)" -ForegroundColor Red
+            if (Test-TcpConnection -ComputerName "github.com" -Port 443) {
+                Write-Host "A direct connection to github.com works."
+            } else {
+                Write-Host "A direct connection to github.com doesn't work either."
+            }
+        } else {
+            Write-Host "Proxy rejected the credentials (407 Proxy Authentication Required): $(Format-Proxy -Url $settings.Url -Credential $settings.Credential)" -ForegroundColor Red
+        }
+
+        $answer = Read-Host "[r] Re-enter proxy   [c] Continue without proxy   [a] Abort"
+        if ($answer -eq 'r') {
+            $settings = Read-ProxySettings
+            $save = $true
+        } elseif ($answer -eq 'c') {
+            $settings = @{ Url = $null; Credential = $null }
+            $save = $true
+        } elseif ($answer -eq 'a') {
+            exit 1
+        }
+    }
+
+    if ($save) {
+        Write-ProxyConf -Url $settings.Url -Credential $settings.Credential
+        Write-Host "Proxy: $(Format-Proxy -Url $settings.Url -Credential $settings.Credential) (saved to proxy.conf)"
+    }
+    $script:ProxyUrl = $settings.Url
+    $script:ProxyCred = $settings.Credential
+}
+#endregion
+
 # Look up the highest "vX.Y.Z" git tag for $repo via the GitHub API (no git CLI required)
 function Get-LatestTag {
     param (
-        [string]$repo,
-        [string]$Proxy
+        [string]$repo
     )
 
     $uri = "https://api.github.com/repos/$repo/tags?per_page=100"
 
     try {
-        if ($Proxy) {
-            $tags = Invoke-RestMethod -Uri $uri -Proxy $Proxy -ProxyUseDefaultCredentials -Headers @{ "User-Agent" = "robotframework-bootstrap" }
-        } else {
-            $tags = Invoke-RestMethod -Uri $uri -Headers @{ "User-Agent" = "robotframework-bootstrap" }
-        }
+        $proxyParams = Get-ProxyParams
+        $tags = Invoke-RestMethod -Uri $uri -Headers @{ "User-Agent" = "robotframework-bootstrap" } @proxyParams
     } catch {
         Write-Host "Could not check for a newer version ($($_.Exception.Message)). Continuing with the current version ($scriptVersion)."
         return $null
@@ -107,8 +437,7 @@ function Test-NewerVersion {
 function Invoke-SelfUpdate {
     param (
         [string]$repo,
-        [string]$tag,
-        [string]$Proxy
+        [string]$tag
     )
 
     Write-Host "Downloading $tag (currently running $scriptVersion) and relaunching..."
@@ -117,19 +446,17 @@ function Invoke-SelfUpdate {
     $newScriptUrl = "https://raw.githubusercontent.com/$repo/$tag/bootstrap-robotframework.ps1"
 
     try {
-        if ($Proxy) {
-            Invoke-WebRequest -Uri $newScriptUrl -OutFile $newScriptPath -Proxy $Proxy -ProxyUseDefaultCredentials -ErrorAction Stop
-        } else {
-            Invoke-WebRequest -Uri $newScriptUrl -OutFile $newScriptPath -ErrorAction Stop
-        }
+        $proxyParams = Get-ProxyParams
+        Invoke-WebRequest -Uri $newScriptUrl -OutFile $newScriptPath -ErrorAction Stop @proxyParams
     } catch {
         Write-Host "Failed to download $tag ($($_.Exception.Message))."
         return $false
     }
 
     $argString = "-NoProfile -ExecutionPolicy Bypass -File `"$newScriptPath`" -AlreadyRelaunched"
-    if ($Proxy) {
-        $argString += " -Proxy `"$Proxy`""
+    # Releases before v1.6.0 don't read proxy.conf, they only take -Proxy (without credentials)
+    if ($ProxyUrl -and (Test-NewerVersion -tag "v1.6.0" -current $tag)) {
+        $argString += " -Proxy `"$ProxyUrl`""
     }
     # Releases before v1.1.0 don't know -SkipInstall (and never install software anyway)
     if ($SkipInstall) {
@@ -189,8 +516,7 @@ function Download-Repo {
     param (
         [string]$tmp_folder,
         [string]$repo,
-        [string]$tag,
-        [string]$Proxy
+        [string]$tag
     )
 
     # Pull the exact tagged snapshot, so a version number always refers to a fixed, reproducible
@@ -208,13 +534,8 @@ function Download-Repo {
     }
 
     try {
-        if ($Proxy) {
-            Write-Host "Download via Proxy: $Proxy"
-            Invoke-WebRequest -Uri $url -OutFile $outputFilePath -Proxy $Proxy -ProxyUseDefaultCredentials -ErrorAction Stop
-        } else {
-            Write-Host "No Proxy configured, download directly."
-            Invoke-WebRequest -Uri $url -OutFile $outputFilePath -ErrorAction Stop
-        }
+        $proxyParams = Get-ProxyParams
+        Invoke-WebRequest -Uri $url -OutFile $outputFilePath -ErrorAction Stop @proxyParams
 
         Expand-Archive -Path $outputFilePath -DestinationPath $tmp_folder -Force -ErrorAction Stop
     } catch {
@@ -365,14 +686,6 @@ function Test-CloudConfConfigured {
     return [bool]($values['s3.keyid'] -and $values['s3.key'] -and $values['s3.bucket'] -and $values['s3.bucket'] -ne 'myBucketName')
 }
 
-# Quote a value for YAML, so credentials with special characters are read back unchanged
-function ConvertTo-YamlString {
-    param (
-        [string]$value
-    )
-    return "'" + ($value -replace "'", "''") + "'"
-}
-
 # Ask for an S3 setting. Enter accepts the default shown in brackets; without a default an answer
 # is required.
 function Read-S3Setting {
@@ -453,7 +766,7 @@ function Confirm-NewS3CloudConf {
 
     Write-Host "S3 parameters were given, but an existing cloud.conf was found."
     while ($true) {
-        $answer = Read-Host "[e] Use the existing cloud.conf   [n] Create a new one (replaces the whole file, incl. proxy settings)"
+        $answer = Read-Host "[e] Use the existing cloud.conf   [n] Create a new one (replaces the whole file)"
         if ($answer -eq 'e') {
             return $false
         }
@@ -491,29 +804,6 @@ function Invoke-SaltCall {
     Write-Host "salt-call $($Arguments -join ' ')"
     & $saltCallPath --local "--config-dir=$saltConfDir" --retcode-passthrough @Arguments | Out-Host
     return ($LASTEXITCODE -eq 0)
-}
-
-# Salt reads the proxy from cloud.conf itself, regardless of -Proxy or the fallback above. If that
-# proxy is unreachable, let the user decide between installing without it for this run and
-# aborting. Returns $true to continue; sets $script:bypassSaltProxy when the proxy is skipped.
-function Confirm-SaltProxy {
-    $saltProxy = Get-ProxyFromCloudConf -path $cloudConfPath
-    if (-not $saltProxy -or (Test-Proxy -Proxy $saltProxy)) {
-        return $true
-    }
-
-    Write-Host "The proxy from cloud.conf ($saltProxy) is not reachable." -ForegroundColor Yellow
-    Write-Host "Salt would still try to use it for the software installation."
-    while ($true) {
-        $answer = Read-Host "[c] Continue without the proxy for this run   [a] Abort to fix cloud.conf"
-        if ($answer -eq 'c') {
-            $script:bypassSaltProxy = $true
-            return $true
-        }
-        if ($answer -eq 'a') {
-            return $false
-        }
-    }
 }
 
 # Print the manual commands, for when the installation is skipped or has to be re-run by hand
@@ -561,71 +851,6 @@ function Get-CloudConfBucket {
     return $null
 }
 
-# Quick TCP connectivity check against a host:port, with a short timeout. Used both for the proxy
-# reachability check and the direct-connection fallback check below.
-function Test-TcpConnection {
-    param (
-        [string]$ComputerName,
-        [int]$Port,
-        [int]$TimeoutMs = 3000
-    )
-
-    $tcpClient = New-Object System.Net.Sockets.TcpClient
-    try {
-        $asyncResult = $tcpClient.BeginConnect($ComputerName, $Port, $null, $null)
-        return $asyncResult.AsyncWaitHandle.WaitOne($TimeoutMs) -and $tcpClient.Connected
-    } catch {
-        return $false
-    } finally {
-        $tcpClient.Close()
-    }
-}
-
-# So a bad proxy fails fast and visibly, with a single clear message, instead of surfacing as a
-# cryptic WebException deep inside a download.
-function Test-Proxy {
-    param (
-        [string]$Proxy
-    )
-
-    try {
-        $uri = [System.Uri]$Proxy
-    } catch {
-        return $false
-    }
-
-    return Test-TcpConnection -ComputerName $uri.Host -Port $uri.Port
-}
-
-# Read proxy_host/proxy_port out of an existing cloud.conf, if one is present, so a machine that's
-# already configured with a proxy doesn't need -Proxy passed by hand for the update check to work.
-function Get-ProxyFromCloudConf {
-    param (
-        [string]$path
-    )
-
-    if (-not (Test-Path -Path $path)) {
-        return $null
-    }
-
-    $proxyHost = $null
-    $proxyPort = $null
-
-    foreach ($line in Get-Content -Path $path) {
-        if ($line -match '^\s*proxy_host:\s*(\S+)') {
-            $proxyHost = $Matches[1]
-        } elseif ($line -match '^\s*proxy_port:\s*(\S+)') {
-            $proxyPort = $Matches[1]
-        }
-    }
-
-    if ($proxyHost -and $proxyPort) {
-        return "http://${proxyHost}:${proxyPort}"
-    }
-
-    return $null
-}
-
 
 # Define your bootstrap directory structure here
 $directoryStructure = @{
@@ -660,46 +885,17 @@ function Create-Directories {
     }
 }
 
-# If an existing cloud.conf already specifies a proxy and none was passed explicitly, use it for
-# the version check and downloads below.
-if (-not $Proxy) {
-    $detectedProxy = Get-ProxyFromCloudConf -path $cloudConfPath
-    if ($detectedProxy) {
-        Write-Section "Proxy"
-        Write-Output "No -Proxy parameter given; using $detectedProxy from existing cloud.conf."
-        $Proxy = $detectedProxy
-    }
+# The proxy for everything below: proxy.conf, or asked for on a machine without one. A -Proxy from
+# a relaunch by an older release only counts as long as there is no proxy.conf yet.
+Write-Section "Proxy"
+if (Test-Path -Path $noProxyConfPath) {
+    Remove-Item -Path $noProxyConfPath -Force
 }
-
-# If a proxy is in use (explicit or detected above), check it's actually reachable before relying
-# on it for the version check and downloads below. If it isn't, fall back to a direct connection
-# check - if that works, continue without the proxy; if neither works, stop here rather than limp
-# through the rest of the run only to fail partway through.
-if ($Proxy) {
-    Write-Section "Test Connectivity"
-    Write-Output "Testing connectivity to $Proxy..."
-    Write-Host -NoNewline "Proxy reachable: "
-    if (Test-Proxy -Proxy $Proxy) {
-        Write-Host "OK" -ForegroundColor Green
-    } else {
-        Write-Host "FAILED" -ForegroundColor Red
-        Write-Output "Could not reach $Proxy within 3 seconds."
-        Write-Output ""
-        Write-Output "Fallback:"
-        Write-Output "Testing connectivity via a direct request https://github.com"
-        Write-Host -NoNewline "Github reachable: "
-        if (Test-TcpConnection -ComputerName "github.com" -Port 443) {
-            Write-Host "OK" -ForegroundColor Green
-            Write-Output "Direct connection to github.com works - continuing without the proxy."
-            $Proxy = $null
-        } else {
-            Write-Host "FAILED" -ForegroundColor Red
-            Write-Output ""
-            Write-Output "Please fix connectivity issues and start deployment again."
-            exit 1
-        }
-    }
+Move-LegacyProxyConf
+if (Test-Path -Path $proxyConfPath) {
+    $Proxy = $null
 }
+Resolve-Proxy -Proxy $Proxy
 
 # With -Version, deploy exactly that release: hand off to its script unless this is already it.
 # The relaunched script is started without -Version, since releases before v1.1.0 don't know it.
@@ -714,7 +910,7 @@ if ($Version -and -not $AlreadyRelaunched) {
         Write-Output "Deploying the requested version ($Version)."
     } else {
         Write-Output "Requested version: $Version."
-        if (-not (Invoke-SelfUpdate -repo $defRepo -tag $Version -Proxy $Proxy)) {
+        if (-not (Invoke-SelfUpdate -repo $defRepo -tag $Version)) {
             Write-Output ""
             Write-Output "Aborting: could not download version $Version. Nothing has been deployed."
             exit 1
@@ -729,10 +925,10 @@ if ($Version -and -not $AlreadyRelaunched) {
 # cause more than one relaunch.
 if (-not $Version -and -not $AlreadyRelaunched) {
     Write-Section "Version Check"
-    $latestTag = Get-LatestTag -repo $defRepo -Proxy $Proxy
+    $latestTag = Get-LatestTag -repo $defRepo
     if ($latestTag -and (Test-NewerVersion -tag $latestTag -current $scriptVersion)) {
         Write-Output "Newer version available: $latestTag."
-        if (Invoke-SelfUpdate -repo $defRepo -tag $latestTag -Proxy $Proxy) {
+        if (Invoke-SelfUpdate -repo $defRepo -tag $latestTag) {
             Write-Output "Relaunched run ($latestTag) finished. Exiting this (outdated) run."
             exit $relaunchExitCode
         }
@@ -767,7 +963,7 @@ if (Test-Path -Path $sourcePath) {
 
 Write-Section "Download"
 Write-Output "Download and extract the git repository content ($scriptVersion)"
-if (-not (Download-Repo -tmp_folder $gitSnap -repo $defRepo -tag $scriptVersion -Proxy $Proxy)) {
+if (-not (Download-Repo -tmp_folder $gitSnap -repo $defRepo -tag $scriptVersion)) {
     Write-Output ""
     Write-Output "Aborting: could not download release $scriptVersion. Nothing has been deployed."
     exit 1
@@ -825,28 +1021,6 @@ if (-not (Wait-CloudConfConfigured)) {
     exit
 }
 
-# A leftover from an interrupted run must not silently disable the proxy
-if (Test-Path -Path $noProxyConfPath) {
-    Remove-Item -Path $noProxyConfPath -Force
-}
-
-$bypassSaltProxy = $false
-if (-not (Confirm-SaltProxy)) {
-    Write-Output "Software installation aborted. Fix the proxy in $cloudConfPath and run it later with:"
-    Write-InstallCommands
-    exit 1
-}
-
-# minion.d files are loaded alphabetically, so this empty proxy_host overrides cloud.conf for the
-# salt-call steps below without touching cloud.conf itself. It is removed again afterwards.
-if ($bypassSaltProxy) {
-    Write-Output "Installing without the proxy for this run (cloud.conf is left unchanged)."
-    Set-Content -Path $noProxyConfPath -Value @(
-        "# Temporary override written by bootstrap-robotframework.ps1, removed after the installation"
-        'proxy_host: ""'
-    ) -Encoding ASCII
-}
-
 Resolve-ClientRole
 
 $saltSteps = @(
@@ -855,16 +1029,10 @@ $saltSteps = @(
     @("state.apply", "deploy-rf-client", "saltenv=cloud", "-l", "info")
 )
 $failedStep = $null
-try {
-    foreach ($step in $saltSteps) {
-        if (-not (Invoke-SaltCall -Arguments $step)) {
-            $failedStep = $step
-            break
-        }
-    }
-} finally {
-    if (Test-Path -Path $noProxyConfPath) {
-        Remove-Item -Path $noProxyConfPath -Force
+foreach ($step in $saltSteps) {
+    if (-not (Invoke-SaltCall -Arguments $step)) {
+        $failedStep = $step
+        break
     }
 }
 
@@ -891,13 +1059,17 @@ if ($SkipPip) {
         $requirementsPath = Join-Path $pipPkgPath "requirements.txt"
         $pipCommand = "`"$python`" -m pip install --no-index --find-links=`"$pipPkgPath`" -r `"$requirementsPath`""
 
-        # Same proxy as Salt uses, unless the user chose to continue without it for this run
-        $saltProxy = Get-ProxyFromCloudConf -path $cloudConfPath
+        # Same proxy as Salt uses (proxy.conf), credentials URL-encoded
         $savedHttpProxy = $env:HTTP_PROXY
         $savedHttpsProxy = $env:HTTPS_PROXY
-        if ($saltProxy -and -not $bypassSaltProxy) {
-            $env:HTTP_PROXY = $saltProxy
-            $env:HTTPS_PROXY = $saltProxy
+        if ($ProxyUrl) {
+            $envProxy = $ProxyUrl
+            if ($ProxyCred) {
+                $userInfo = [System.Uri]::EscapeDataString($ProxyCred.UserName) + ":" + [System.Uri]::EscapeDataString($ProxyCred.GetNetworkCredential().Password)
+                $envProxy = $ProxyUrl -replace '^http://', "http://$userInfo@"
+            }
+            $env:HTTP_PROXY = $envProxy
+            $env:HTTPS_PROXY = $envProxy
         }
 
         # Full output only with -Verbose; otherwise it is captured, summarized, and shown on failure
