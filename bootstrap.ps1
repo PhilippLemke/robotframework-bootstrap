@@ -30,8 +30,11 @@ $repo = "PhilippLemke/robotframework-bootstrap"
 $saltFolderPath = "C:\Program Files\Salt Project\Salt"
 $tempFolderPath = "C:\Temp"
 
+# Allow the downloaded scripts to run. A policy set by Group Policy overrides this with an error
+# that changes nothing for this run, so it isn't shown.
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process -Force -ErrorAction SilentlyContinue
+
 # Set the security protocol to TLS 1.2
-Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 #region Proxy - keep identical in bootstrap.ps1 and bootstrap-robotframework.ps1
