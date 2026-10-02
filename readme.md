@@ -18,7 +18,7 @@ one-liner below always ends up on the current release even if the file cached in
 Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap.ps1 -OutFile C:\Temp\bootstrap.ps1; C:\Temp\bootstrap.ps1; cmd
 ```
 
-With a proxy:
+With a proxy (see [Proxy](#proxy)):
 ```powershell
 Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap.ps1 -OutFile C:\Temp\bootstrap.ps1; C:\Temp\bootstrap.ps1 -Proxy "http://myproxy.local:port"; cmd
 ```
@@ -35,9 +35,35 @@ With a client role (`coding` or `execution`, saved without asking; see
 Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap.ps1 -OutFile C:\Temp\bootstrap.ps1; C:\Temp\bootstrap.ps1 -ClientRole execution; cmd
 ```
 
-Instead of `-Proxy`, `bootstrap.ps1` also picks up a `$Proxy` variable set in the PowerShell
-session (or an environment variable `Proxy`), e.g. `$Proxy = "http://myproxy.local:port"` before
-running the one-liner. An explicit `-Proxy` takes precedence.
+#### Proxy
+The proxy is defined in one place, `C:\RF-Bootstrap\salt-data\conf\minion.d\proxy.conf`. Salt
+reads it as minion config (`proxy_host`, `proxy_port`, `proxy_username`, `proxy_password`), and
+the scripts use it for their downloads, the AWS CLI, pip and git (global `.gitconfig`). The
+password is stored in plain text, like `s3.key`.
+
+`bootstrap.ps1` sets it up:
+
+| Parameter        | Meaning                                                                 |
+|------------------|-------------------------------------------------------------------------|
+| `-Proxy`         | `http://host:port`, `http://user:password@host:port` (URL-encoded) or `none` |
+| `-ProxyUser`     | User for Basic auth; without it the proxy is used without authentication |
+| `-ProxyPassword` | Password for `-ProxyUser`; asked for (hidden) if missing                 |
+
+- Without `-Proxy` and without a `proxy.conf`, the script asks for the proxy (Enter = none), then
+  for a user (Enter = no authentication) and the password.
+- Once `proxy.conf` exists, later runs use it without asking. Pass `-Proxy` again to change it, or
+  `-Proxy none` to remove it. "No proxy" is saved as well, so no later run asks again.
+- Before a proxy is used, it is tested: TCP connection, then a request to `api.github.com` that
+  detects rejected credentials (407). If it fails, you choose between re-entering the proxy,
+  continuing without a proxy (saved) and aborting.
+- `bootstrap-robotframework.ps1` reads `proxy.conf` and asks the same way on a machine without one.
+- Windows logon authentication (NTLM/Kerberos) is not supported, only Basic auth.
+- Releases before v1.6.0 kept the proxy in `cloud.conf`. It is moved to `proxy.conf` on the first
+  run and removed from `cloud.conf`. The `$Proxy` session variable / `$env:Proxy` fallback is gone.
+
+```powershell
+C:\Temp\bootstrap.ps1 -Proxy "http://myproxy.local:3128" -ProxyUser jdoe
+```
 
 `bootstrap.ps1` installs Salt `3006.19` on machines without Salt. Pass `-SaltVersion <version>`
 (e.g. `3007.8` or `latest`) for a different one. An existing Salt installation is never upgraded.
@@ -64,10 +90,6 @@ salt-call --local --config-dir=C:\RF-Bootstrap\salt-data\conf state.apply deploy
   configuration (empty `s3.keyid`/`s3.key` or bucket `myBucketName`), the script pauses and asks
   you to edit it. Press Enter to re-check, or type `skip` to skip the installation. The script
   then prints the commands above so you can run them later.
-- If cloud.conf configures a proxy (`proxy_host`/`proxy_port`) that is not reachable, the script
-  asks whether to install without the proxy for this run or to abort. Continuing writes a
-  temporary `minion.d\zz-no-proxy.conf` that overrides the proxy for Salt only while the
-  installation runs; cloud.conf itself is not changed.
 - If a step fails, the remaining steps are skipped and the script exits with code 1. Details are
   in `C:\RF-Bootstrap\salt-var\salt.log`.
 - Pass `-SkipInstall` to `bootstrap.ps1` or `bootstrap-robotframework.ps1` to only deploy
@@ -76,7 +98,7 @@ salt-call --local --config-dir=C:\RF-Bootstrap\salt-data\conf state.apply deploy
 #### Pip packages
 After the Salt steps, the script syncs the pip packages from `s3://<s3.bucket>/pip` to
 `C:\RF-Bootstrap\pkgs\pip` with the AWS CLI (credentials from `~/.aws`, written by Salt; proxy
-from cloud.conf) and installs them offline:
+from proxy.conf) and installs them offline:
 
 ```cmd
 "C:\Program Files\Python310\python.exe" -m pip install --no-index --find-links="C:\RF-Bootstrap\pkgs\pip" -r "C:\RF-Bootstrap\pkgs\pip\requirements.txt"
@@ -105,8 +127,7 @@ from cloud.conf) and installs them offline:
 If at least one of them is given, the script writes a new cloud.conf. It asks for the missing
 settings (Enter accepts the default in brackets) and always for `s3.keyid` and `s3.key`, which are
 never passed as parameters. If a cloud.conf existed before the run, you choose between keeping it
-(the parameters are ignored) and replacing it with a new one. A new file contains only the S3
-settings, so proxy settings from the old one are not carried over.
+(the parameters are ignored) and replacing it with a new one.
 
 ```powershell
 C:\Temp\bootstrap.ps1 -S3Bucket my-bucket
