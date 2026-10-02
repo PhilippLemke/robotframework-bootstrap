@@ -20,7 +20,13 @@ Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/
 
 With a proxy (see [Proxy](#proxy)):
 ```powershell
-Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap.ps1 -OutFile C:\Temp\bootstrap.ps1; C:\Temp\bootstrap.ps1 -Proxy "http://myproxy.local:port"; cmd
+$px = "http://myproxy.local:port"; Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap.ps1 -OutFile C:\Temp\bootstrap.ps1 -Proxy $px; C:\Temp\bootstrap.ps1 -Proxy $px; cmd
+```
+
+With a proxy that needs a user and password (the same credentials are used for the download of
+`bootstrap.ps1` and by the script itself):
+```powershell
+$px = "http://myproxy.local:port"; $cred = Get-Credential -Message "Proxy"; Invoke-WebRequest -Uri https://github.com/PhilippLemke/robotframework-bootstrap/raw/master/bootstrap.ps1 -OutFile C:\Temp\bootstrap.ps1 -Proxy $px -ProxyCredential $cred; C:\Temp\bootstrap.ps1 -Proxy $px -ProxyCredential $cred; cmd
 ```
 
 With S3 settings for a new cloud.conf (asks for `s3.keyid` and `s3.key`; see
@@ -43,11 +49,14 @@ password is stored in plain text, like `s3.key`.
 
 `bootstrap.ps1` sets it up:
 
-| Parameter        | Meaning                                                                 |
-|------------------|-------------------------------------------------------------------------|
-| `-Proxy`         | `http://host:port`, `http://user:password@host:port` (URL-encoded) or `none` |
-| `-ProxyUser`     | User for Basic auth; without it the proxy is used without authentication |
-| `-ProxyPassword` | Password for `-ProxyUser`; asked for (hidden) if missing                 |
+| Parameter          | Meaning                                                                      |
+|--------------------|------------------------------------------------------------------------------|
+| `-Proxy`           | `http://host:port`, `http://user:password@host:port` (URL-encoded) or `none` |
+| `-ProxyCredential` | PSCredential for Basic auth, e.g. from `Get-Credential` (`domain\user` works) |
+| `-ProxyUser`       | User for Basic auth, as an alternative to `-ProxyCredential`             |
+| `-ProxyPassword`   | Password for `-ProxyUser`; asked for (hidden) if missing                 |
+
+Without `-ProxyCredential` or `-ProxyUser` the proxy is used without authentication.
 
 - Without `-Proxy` and without a `proxy.conf`, the script asks for the proxy (Enter = none), then
   for a user (Enter = no authentication) and the password.
@@ -62,6 +71,7 @@ password is stored in plain text, like `s3.key`.
   run and removed from `cloud.conf`. The `$Proxy` session variable / `$env:Proxy` fallback is gone.
 
 ```powershell
+C:\Temp\bootstrap.ps1 -Proxy "http://myproxy.local:3128" -ProxyCredential (Get-Credential)
 C:\Temp\bootstrap.ps1 -Proxy "http://myproxy.local:3128" -ProxyUser jdoe
 ```
 
