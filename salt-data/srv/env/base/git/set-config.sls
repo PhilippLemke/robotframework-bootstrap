@@ -19,29 +19,21 @@ set-code-commit-endpoint:
     - permanent: HKLM
 {% endif %}
 
-# Configure git to use a proxy if configured in salt config
-{% set proxy_host = salt['config.get']('proxy_host') %}
-{% set proxy_port = salt['config.get']('proxy_port') %}
-{% set proxy_user = salt['config.get']('proxy_user', None) %}
-{% set proxy_password = salt['config.get']('proxy_password', None) %}
+# Configure git to use the proxy from proxy.conf, or remove it once no proxy is set there
+{% from "macros/proxy.sls" import proxy_url with context %}
+{% set url = proxy_url() %}
 
-
-{% if proxy_host and proxy_port != 0 %}
-{% set proxy_url = 'http://' + proxy_host + ':' %}
-{% if proxy_user and proxy_password %}
-{% set proxy_url = 'http://' + proxy_user + ':' + proxy_password + '@' + proxy_host + ':' %}
-{% endif %}
-
-git_config_set_http_proxy:
+{% for section in ['http', 'https'] %}
+{% if url %}
+git_config_set_{{ section }}_proxy:
   git.config_set:
-    - name: http.proxy
-    - value: {{ proxy_url }}{{ proxy_port }}
+    - name: {{ section }}.proxy
+    - value: '{{ url }}'
     - global: True
-
-git_config_set_https_proxy:
-  git.config_set:
-    - name: https.proxy
-    - value: {{ proxy_url }}{{ proxy_port }}
+{% else %}
+git_config_unset_{{ section }}_proxy:
+  git.config_unset:
+    - name: {{ section }}.proxy
     - global: True
-
 {% endif %}
+{% endfor %}

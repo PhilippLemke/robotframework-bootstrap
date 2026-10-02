@@ -28,17 +28,20 @@ log = logging.getLogger(__name__)
 def _get_proxy():
     # Accessing the global Salt configuration
     config = __opts__
-    # Retrieve proxy settings from Salt configuration
+    # Retrieve proxy settings from Salt configuration (proxy.conf)
     proxy_host = config.get("proxy_host", None)
     proxy_port = config.get("proxy_port", None)
-    proxy_user = config.get("proxy_user", None)
+    proxy_username = config.get("proxy_username", None)
     proxy_password = config.get("proxy_password", None)
 
     # Define the proxy if host and port are configured
     if proxy_host and proxy_port:
-        # Include user authentication in the proxy URL if provided
-        if proxy_user and proxy_password:
-            proxy_auth = f"{proxy_user}:{proxy_password}@"
+        # Include user authentication in the proxy URL if provided, URL-encoded so special
+        # characters in the password don't break the URL
+        if proxy_username:
+            user = urllib.parse.quote(str(proxy_username), safe="")
+            password = urllib.parse.quote(str(proxy_password or ""), safe="")
+            proxy_auth = f"{user}:{password}@"
         else:
             proxy_auth = ""
 
@@ -46,10 +49,11 @@ def _get_proxy():
             "http": f"http://{proxy_auth}{proxy_host}:{proxy_port}",
             "https": f"http://{proxy_auth}{proxy_host}:{proxy_port}",
         }
+        log.info(f"Using proxy http://{proxy_host}:{proxy_port} for s3 queries")
     else:
         proxies = None  # No proxy configuration
+        log.info("Using no proxy for s3 queries")
 
-    log.info(f"Using Proxy configuration for s3 queries: {proxies}")
     return proxies
 
 
