@@ -119,9 +119,12 @@ param(
     [ValidatePattern('^(http|https):\/\/([\w.-]+|\d{1,3}(\.\d{1,3}){3}):\d+$', Options=1)]
     [Alias("p")]
     # Proxy server URL in the format http://hostname:port or http://ip:port
-    # The -ProxyUseDefaultCredentials flag is automatically used as well
     # Default is $null, which will disable the proxy option.
     [String]$Proxy = $null,
+
+    [Parameter(Mandatory=$false)]
+    # Basic auth for the proxy. Default is $null, which connects without credentials.
+    [PSCredential]$ProxyCredential = $null,
 
     [Parameter(Mandatory=$false)]
     [Alias("i")]
@@ -295,17 +298,24 @@ function Invoke-RequestWithProxy {
         [string]$Uri,
         [string]$Method = 'GET',
         [string]$Proxy = $null,
+        [PSCredential]$ProxyCredential = $null,
         [switch]$UseBasicParsing = $false,
         [switch]$DisableKeepAlive = $false        
     )
 
-    if ($null -ne $Proxy -and $Proxy -ne "") {
+    if ($null -ne $Proxy -and $Proxy -ne "" -and $ProxyCredential) {
         return Invoke-WebRequest -Uri $Uri `
                                 -Method $Method `
                                 -UseBasicParsing:$UseBasicParsing `
                                 -DisableKeepAlive:$DisableKeepAlive `
                                 -Proxy $Proxy `
-                                -ProxyUseDefaultCredentials
+                                -ProxyCredential $ProxyCredential
+    } elseif ($null -ne $Proxy -and $Proxy -ne "") {
+        return Invoke-WebRequest -Uri $Uri `
+                                -Method $Method `
+                                -UseBasicParsing:$UseBasicParsing `
+                                -DisableKeepAlive:$DisableKeepAlive `
+                                -Proxy $Proxy
     } else {
         return Invoke-WebRequest -Uri $Uri `
                                 -Method $Method `
@@ -459,7 +469,7 @@ $saltFileUrl = ""
 # Look for a repo.json file
 try {
     Write-Verbose "Looking for $RepoUrl/repo.json"
-    $response = Invoke-RequestWithProxy -Uri "$RepoUrl/repo.json" ` -Proxy $Proxy
+    $response = Invoke-RequestWithProxy -Uri "$RepoUrl/repo.json" ` -Proxy $Proxy -ProxyCredential $ProxyCredential
     if ( $response.StatusCode -eq "200" ) {
         Write-Verbose "Found $RepoUrl/repo.json"
         # This URL contains a repo.json file, let's use it
@@ -479,7 +489,7 @@ if ( $use_repo_json ) {
     $enc = [System.Text.Encoding]::UTF8
     try {
         Write-Verbose "Downloading $RepoUrl/repo.json"
-        $response = Invoke-RequestWithProxy -Uri "$RepoUrl/repo.json" ` -UseBasicParsing -Proxy $Proxy
+        $response = Invoke-RequestWithProxy -Uri "$RepoUrl/repo.json" ` -UseBasicParsing -Proxy $Proxy -ProxyCredential $ProxyCredential
         if ($response.Content.GetType().Name -eq "Byte[]") {
             $psobj = $enc.GetString($response.Content) | ConvertFrom-Json
         } else {
@@ -507,7 +517,7 @@ if ( $use_repo_json ) {
     } else {
         try {
             Write-Verbose "Searching for $searchVersion in $RepoUrl/minor/repo.json"
-            $response = Invoke-RequestWithProxy -Uri "$RepoUrl/minor/repo.json" -UseBasicParsing -Proxy $Proxy
+            $response = Invoke-RequestWithProxy -Uri "$RepoUrl/minor/repo.json" -UseBasicParsing -Proxy $Proxy -ProxyCredential $ProxyCredential
             if ($response.Content.GetType().Name -eq "Byte[]") {
                 $psobj = $enc.GetString($response.Content) | ConvertFrom-Json
             } else {
@@ -564,7 +574,7 @@ foreach ($url in $urls) {
                     -DisableKeepAlive `
                     -UseBasicParsing `
                     -Method Head `
-                    -Proxy $Proxy
+                    -Proxy $Proxy -ProxyCredential $ProxyCredential
         if ( $response.StatusCode -eq "200" ) {
             Write-Verbose "Found installer"
             # This URL contains a repo.json file, let's use it
@@ -637,7 +647,9 @@ if ($Proxy) {
 # Define the proxy for WebClient
 $webproxy = New-Object System.Net.WebProxy($Proxy)
 # If the proxy requires authentication:
-$webproxy.Credentials = [System.Net.CredentialCache]::DefaultNetworkCredentials
+if ($ProxyCredential) {
+$webproxy.Credentials = $ProxyCredential.GetNetworkCredential()
+}
 # Assign the proxy to the WebClient
 $webclient.Proxy = $webproxy
 }
