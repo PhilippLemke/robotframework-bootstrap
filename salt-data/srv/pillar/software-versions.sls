@@ -22,7 +22,8 @@ repo-ng-versions:
   nodejs:
     - 20.11.1
     - 24.8.0
-    - 24.21.0
+    - 24.21.0 # sicherheitsluecke entdeckt
+    - 24.22.2
 
   python3_x64:
     - 3.10.9

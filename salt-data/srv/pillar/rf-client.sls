@@ -43,7 +43,7 @@ apps-common:
     version: 2.55.0.5
 
   nodejs:
-    version: 24.21.0
+    version: 24.22.2
 
 #installed only on coding client
 apps-coding:
