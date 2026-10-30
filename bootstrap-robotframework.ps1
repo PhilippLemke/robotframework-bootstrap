@@ -524,6 +524,34 @@ function Invoke-SelfUpdate {
     return $true
 }
 
+# Warn if a relaunched run deploys another release than it was started for. Invoke-SelfUpdate puts
+# the requested tag in the file name, $scriptVersion decides which repo content gets downloaded, so
+# they differ if a tag was cut without bumping $scriptVersion.
+function Write-VersionMismatchWarning {
+    if (-not $AlreadyRelaunched -or $PSCommandPath -notmatch 'bootstrap-robotframework-(v[\d.]+)\.ps1$') {
+        return
+    }
+
+    $requestedTag = $Matches[1]
+    if ($requestedTag -eq $scriptVersion) {
+        return
+    }
+
+    $lines = @(
+        ("=" * 78),
+        "WARNING: VERSION MISMATCH",
+        "Requested release: $requestedTag",
+        "Deployed content:  $scriptVersion (`$scriptVersion in the script of $requestedTag)",
+        "The changes of $requestedTag are NOT deployed by this run.",
+        "Fix: bump `$scriptVersion, tag a new release and run the bootstrap again.",
+        ("=" * 78)
+    )
+    Write-Output ""
+    foreach ($line in $lines) {
+        Write-Host $line.PadRight(78) -ForegroundColor White -BackgroundColor DarkRed
+    }
+}
+
 function Download-Repo {
     param (
         [string]$tmp_folder,
@@ -974,6 +1002,7 @@ if (Test-Path -Path $sourcePath) {
 }
 
 Write-Section "Download"
+Write-VersionMismatchWarning
 Write-Output "Download and extract the git repository content ($scriptVersion)"
 if (-not (Download-Repo -tmp_folder $gitSnap -repo $defRepo -tag $scriptVersion)) {
     Write-Output ""
@@ -1164,3 +1193,5 @@ if ($SkipPip) {
 
 Write-Output ""
 Write-Host "Software installation finished." -ForegroundColor Green
+# Repeated here, the warning before the download has scrolled away by now
+Write-VersionMismatchWarning
