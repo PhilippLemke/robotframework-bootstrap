@@ -177,7 +177,7 @@ C:\Temp\bootstrap-robotframework.ps1
 commits on `master`. To ship a change to clients:
 
 1. Merge the change to `master`.
-2. Bump `$scriptVersion` at the top of `bootstrap-robotframework.ps1` to the new tag you're about
+2. 🚨 Bump `$scriptVersion` at the top of `bootstrap-robotframework.ps1` to the new tag you're about 
    to create (e.g. `v1.1.0`) and commit that.
 3. Tag the release and push the tag:
    ```bash
